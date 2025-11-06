@@ -248,7 +248,8 @@ export default function LoginPage() {
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
 
           {/* Forgot Password */}
-          <div className="text-sm text-gray-500 mb-4 cursor-pointer hover:underline">
+          <div className="text-sm text-gray-500 mb-4 cursor-pointer hover:underline"
+             onClick={() => router.push("/auth/forgot")}>
             Forgot Password?
           </div>
 

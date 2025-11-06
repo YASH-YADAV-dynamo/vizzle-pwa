@@ -125,13 +125,13 @@ function TryOnPageContent() {
           {/* ---------- SINGLE GARMENT ---------- */}
           <TabsContent value="single">
             <Card
-              className="border-dashed border-2 border-gray-300 rounded-lg mb-4 hover:bg-gray-50 cursor-pointer relative"
+              className="border-dashed border-2 border-gray-300 rounded-lg mb-4 hover:bg-gray-50 cursor-pointer relative "
               onClick={!lastGarment ? handleAddGarment : undefined}
             >
-              <CardContent className="flex flex-col items-center justify-center py-10">
+              <CardContent className="flex flex-col items-center justify-center py-10 mt-5">
                 {lastGarment ? (
                   <>
-                    <div className="relative w-40 h-40 mb-2 rounded-lg overflow-hidden ">
+                    <div className="relative w-40 h-40 mb-2 rounded-lg overflow-hidden mt-5">
                       <Image
                         src={lastGarment.image}
                         alt={lastGarment.name}
@@ -157,7 +157,7 @@ function TryOnPageContent() {
                   </>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <Upload className="h-8 w-8 text-gray-400 mt-2" />
                     <p className="text-gray-500 text-sm">Add garment</p>
                     <p className="text-xs text-gray-400 mt-1 text-center">
                       JPEG/PNG/WEBP up to 20MB and 4096×4096 pixels
@@ -172,9 +172,9 @@ function TryOnPageContent() {
               className="border-dashed border-2 border-gray-300 rounded-lg mb-6 hover:bg-gray-50 cursor-pointer relative"
               onClick={() => modelInputRef.current?.click()}
             >
-              <CardContent className="flex flex-col items-center justify-center py-10 relative">
+              <CardContent className="flex flex-col items-center justify-center py-10 relative mt-5">
                 {modelImage ? (
-                  <div className="relative w-40 h-40 mb-2  overflow-hidden">
+                  <div className="relative w-40 h-40 mb-2  overflow-hidden mt-5">
                     <Image
                       src={modelImage}
                       alt="Model"
@@ -190,7 +190,7 @@ function TryOnPageContent() {
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <Upload className="h-8 w-8 text-gray-400 mt-2" />
                     <p className="text-gray-500 text-sm">Upload photo</p>
                   </>
                 )}
@@ -217,8 +217,8 @@ function TryOnPageContent() {
                     key={`garment-${item.id || index}`}
                     className="border-dashed border-2 border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer relative"
                   >
-                    <CardContent className="flex flex-col items-center justify-center py-10 relative">
-                      <div className="relative w-25 h-20 mb-2 rounded-md overflow-hidden">
+                    <CardContent className="flex flex-col items-center justify-center py-10 relative mt-5">
+                      <div className="relative w-25 h-20 mb-2 rounded-md overflow-hidden mt-5">
                         <Image
                           src={item.image}
                           alt={item.name}
@@ -249,8 +249,8 @@ function TryOnPageContent() {
                     onClick={handleAddGarment}
                     className="border-dashed border-2 border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
                   >
-                    <CardContent className="flex flex-col items-center justify-center py-10">
-                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <CardContent className="flex flex-col items-center justify-center py-10 mt-5">
+                      <Upload className="h-8 w-8 text-gray-400 mt-2" />
                       <p className="text-gray-500 text-sm text-center">
                         Add garment
                       </p>
@@ -262,12 +262,12 @@ function TryOnPageContent() {
 
             {/* Select Model (multiple tab) - uses same shared input */}
             <Card
-              className="border-dashed border-2 border-gray-300 rounded-lg mb-6 hover:bg-gray-50 cursor-pointer relative"
+              className="border-dashed border-2 border-gray-300 rounded-lg mb-6 hover:bg-gray-50 cursor-pointer relative "
               onClick={() => modelInputRef.current?.click()}
             >
               <CardContent className="flex flex-col items-center justify-center py-10 relative">
                 {modelImage ? (
-                  <div className="relative w-40 h-48 mb-2  overflow-hidden">
+                  <div className="relative w-40 h-48 mb-2  overflow-hidden mt-5">
                     <Image
                       src={modelImage}
                       alt="Model"
@@ -283,7 +283,7 @@ function TryOnPageContent() {
                   </div>
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <Upload className="h-8 w-8 text-gray-400 mt-2" />
                     <p className="text-gray-500 text-sm">
                       Upload photo
                     </p>

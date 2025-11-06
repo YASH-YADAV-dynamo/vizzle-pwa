@@ -24,17 +24,31 @@ function HomePageContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { wishlist, toggleWishlist } = useFirebaseWishlist();
+  const [products, setProducts] = useState<Product[]>([]);
 
-  // Check if current user is admin
+  // ✅ Fetch products dynamically
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("/sample-products.json");
+        if (!res.ok) throw new Error("Failed to load products");
+        const data = await res.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        toast.error("Failed to load products");
+      }
+    };
+    fetchProducts();
+  }, []);
+
   const isAdminUser = user && isAdmin(user.email);
 
-  // Handle wishlist toggle with product data
   const handleWishlistToggle = async (product: Product) => {
     if (!user) {
       toast.error("Please login to add favorites");
       return;
     }
-
     try {
       await toggleWishlist(product.id, product);
       const isAdding = !wishlist.includes(product.id);
@@ -45,13 +59,11 @@ function HomePageContent() {
     }
   };
 
-  // ✅ Detect from where user came (dynamic)
   const [originTab, setOriginTab] = useState("single");
   useEffect(() => {
     const tabFromURL = searchParams.get("tab");
     if (tabFromURL === "multiple" || tabFromURL === "single") {
       setOriginTab(tabFromURL);
-      // Store it globally
       localStorage.setItem("originTab", tabFromURL);
     } else {
       const saved = localStorage.getItem("originTab");
@@ -59,79 +71,111 @@ function HomePageContent() {
     }
   }, [searchParams]);
 
-  // ✅ Product list
-  const products: Product[] = [
-    { id: 1, name: "Men Black Shirt", image: "/v3.jpg", category: "Men" },
-    { id: 2, name: "Women Grey Jogger", image: "/v2.jpg", category: "Women" },
-    { id: 3, name: "Kids Red T-Shirt", image: "/v5.jpg", category: "Kids" },
-    { id: 4, name: "Men Formal Coat", image: "/v4.jpg", category: "Men" },
-    { id: 5, name: "Women White Dress", image: "/v1.jpg", category: "Women" },
-    { id: 6, name: "Kids Blue Shorts", image: "/v6.jpg", category: "Kids" },
-  ];
-
   const categories = ["All", "Men", "Women", "Kids"];
 
-  // ✅ Filter products
+  // ✅ Filter logic
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const productName = p.name?.toLowerCase() || "";
+    const productCategory = p.category?.toLowerCase() || "";
+
     const matchesCategory =
-      selectedCategory === "All" || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+      selectedCategory === "All"
+        ? true
+        : productCategory === selectedCategory.toLowerCase();
+
+    return matchesCategory;
   });
 
-  // ✅ Handle "Try On" button
   const handleTryOn = (product: Product) => {
     const existing = JSON.parse(localStorage.getItem("tryonProducts") || "[]");
     const alreadyAdded = existing.some((p: Product) => p.id === product.id);
     const updated = alreadyAdded ? existing : [...existing, product];
     localStorage.setItem("tryonProducts", JSON.stringify(updated));
-
-    // 🔹 Save the tab user came from (to return correctly later)
     localStorage.setItem("originTab", originTab);
-
-    // 🔹 Redirect back to TryOn page (same tab)
     router.push(`/main/tryon?tab=${originTab}`);
   };
 
+  // ✅ Back button confirmation toast
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+
+      // Custom centered toast
+      toast.custom(
+        (t) => (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999]">
+            <div className="flex flex-col items-center justify-center bg-white shadow-2xl p-6 rounded-2xl text-center w-[90%] max-w-sm border border-gray-200">
+              <h2 className="text-lg font-semibold mb-3">
+                Are you sure you want to exit?
+              </h2>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    router.back();
+                  }}
+                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
+        ),
+        { duration: 4000, position: "top-center" }
+      );
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [router]);
+
   return (
     <div className="flex flex-col min-h-screen bg-white overflow-y-auto pb-24 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-      {/* Header */}
-      <div className="relative w-full h-64">
-        <video
-          src="/BV.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="object-cover brightness-90 w-full h-full"
-        />
-        <div className="absolute inset-0 bg-black/20" />
-
-        {/* Search Bar */}
-        <div className="absolute top-5 left-0 w-full px-4">
-          <div className="flex items-center gap-2 w-full bg-white/80 backdrop-blur-md rounded-full px-4 py-2">
-            <Search className="w-5 h-5 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search your style..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setSelectedCategory("All");
-              }}
-              className="bg-transparent outline-none text-sm w-full text-gray-700 placeholder-gray-500"
+      {/* Video Carousel */}
+      <div className="relative w-full h-64 overflow-x-auto flex snap-x snap-mandatory scroll-smooth scrollbar-none">
+        {["/BV1.mp4", "/BV2.mp4"].map((videoSrc, index) => (
+          <div key={index} className="relative flex-shrink-0 w-full h-64 snap-center">
+            <video
+              src={videoSrc}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="object-cover brightness-90 w-full h-full"
             />
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="absolute bottom-5 left-5 text-white">
+              <h1 className="text-2xl font-semibold">
+                {index === 0 ? "Discover your Style" : "New Arrivals"}
+              </h1>
+              <p className="text-sm opacity-90">
+                {index === 0
+                  ? "Try fashion that fits you best"
+                  : "Explore the latest trends"}
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* Header Text */}
-        <div className="absolute bottom-5 left-5 text-white">
-          <h1 className="text-2xl font-semibold">Discover your Style</h1>
-          <p className="text-sm opacity-90">Try fashion that fits you best</p>
-        </div>
+        ))}
       </div>
 
-      {/* Admin Manage Products Button */}
+      {/* Admin Button */}
       {isAdminUser && (
         <div className="px-4 mt-4">
           <button
@@ -164,6 +208,20 @@ function HomePageContent() {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="px-4 mt-3">
+        <div className="flex items-center gap-2 w-full bg-white border border-gray-300 rounded-full px-4 py-2 shadow-md">
+          <Search className="w-5 h-5 text-gray-600" />
+          <input
+            type="text"
+            placeholder="Search with my product"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-transparent outline-none text-sm w-full text-gray-800 placeholder-gray-500"
+          />
+        </div>
+      </div>
+
       {/* Product List */}
       <div className="grid grid-cols-2 gap-4 p-4">
         {filteredProducts.length > 0 ? (
@@ -177,8 +235,6 @@ function HomePageContent() {
                   className="object-cover rounded-[10px]"
                 />
               </div>
-
-              {/* Info + Wishlist */}
               <div className="mt-2 flex items-center justify-between w-full">
                 <p className="text-[15px] text-gray-800 font-medium truncate">
                   {product.name}
@@ -186,7 +242,11 @@ function HomePageContent() {
                 <button
                   onClick={() => handleWishlistToggle(product)}
                   className="text-gray-600 hover:scale-110 transition-all"
-                  title={wishlist.includes(product.id) ? "Remove from favorites" : "Add to favorites"}
+                  title={
+                    wishlist.includes(product.id)
+                      ? "Remove from favorites"
+                      : "Add to favorites"
+                  }
                 >
                   {wishlist.includes(product.id) ? (
                     <AiFillHeart className="text-red-500 text-[22px]" />
@@ -195,8 +255,6 @@ function HomePageContent() {
                   )}
                 </button>
               </div>
-
-              {/* Try On Button */}
               <button
                 onClick={() => handleTryOn(product)}
                 className="mt-2 w-full bg-black text-white text-sm py-2 rounded-lg hover:bg-gray-800 transition"
@@ -217,7 +275,13 @@ function HomePageContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          Loading...
+        </div>
+      }
+    >
       <HomePageContent />
     </Suspense>
   );

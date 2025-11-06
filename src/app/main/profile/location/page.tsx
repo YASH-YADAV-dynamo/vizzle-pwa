@@ -15,7 +15,7 @@ export default function LocationPage() {
         >
           <ArrowLeft className="w-5 h-5 text-gray-800" />
         </button>
-        <h1 className="text-lg font-bold text-gray-900">About</h1>
+        <h1 className="text-lg font-bold text-gray-900">Location</h1>
         <div className="w-5" /> {/* spacing placeholder */}
       </div>
 
