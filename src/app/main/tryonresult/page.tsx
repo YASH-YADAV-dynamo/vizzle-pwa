@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Share2, Download, Video } from "lucide-react";
+import { Share2, Download, Video, Loader2 } from "lucide-react";
 import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { VizzleAPI } from "@/lib/api/vizzle-api";
 
 export default function TryOnResultPage() {
   const router = useRouter();
@@ -13,6 +14,22 @@ export default function TryOnResultPage() {
   const [resultUrl, setResultUrl] = useState<string>("/v1.jpg");
   const [garmentName, setGarmentName] = useState<string>("Product");
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+
+  useEffect(() => {
+    // Load try-on result from localStorage
+    const savedResult = localStorage.getItem("tryonResult");
+    const savedGarmentName = localStorage.getItem("tryonGarmentName");
+
+    if (savedResult) {
+      setResultUrl(savedResult);
+    }
+
+    if (savedGarmentName) {
+      setGarmentName(savedGarmentName);
+    }
+  }, []);
 
    useEffect(() => {
     // Check if feedback was already shown
@@ -90,12 +107,75 @@ export default function TryOnResultPage() {
     }
   };
 
-  const handleGenerateVideo = () => {
-    toast.loading("Generating video...");
-    setTimeout(() => {
-      toast.dismiss();
-      toast.success("Video generated successfully!");
-    }, 2000);
+  const handleGenerateVideo = async () => {
+    if (!resultUrl || resultUrl === "/v1.jpg") {
+      toast.error("Please complete a try-on first");
+      return;
+    }
+
+    setIsGeneratingVideo(true);
+    setVideoProgress(10);
+    const loadingToast = toast.loading("Initializing video generation...");
+
+    try {
+      // Generate video from the try-on result image
+      // API: VideoGenerationRequest with image_url, motion_type, duration (2-10), fps (12-30)
+      const videoResponse = await VizzleAPI.generateVideo({
+        image_url: resultUrl,
+        motion_type: "subtle_walk",
+        duration: 3, // Valid range: [2, 10]
+        fps: 24, // Valid range: [12, 30]
+      });
+
+      setVideoProgress(20);
+      toast.loading("Generating video... This may take 60-90 seconds", {
+        id: loadingToast,
+      });
+
+      // Poll for status updates to show progress
+      let pollInterval: NodeJS.Timeout | null = null;
+      pollInterval = setInterval(async () => {
+        try {
+          const status = await VizzleAPI.getVideoStatus(videoResponse.id);
+          if (status.progress !== null && status.progress !== undefined) {
+            setVideoProgress(Math.max(20, status.progress));
+          }
+          if (status.status === "succeeded" || status.status === "failed") {
+            if (pollInterval) clearInterval(pollInterval);
+          }
+        } catch (error) {
+          // Ignore polling errors, waitForVideo will handle final status
+        }
+      }, 2000); // Poll every 2 seconds
+
+      // Wait for video generation to complete
+      // API: VideoResponse with id, status, video_url, error, progress, estimated_time
+      const videoResult = await VizzleAPI.waitForVideo(videoResponse.id);
+      if (pollInterval) clearInterval(pollInterval);
+
+      if (videoResult.status === "succeeded" && videoResult.video_url) {
+        setVideoProgress(100);
+        toast.success("Video generated successfully!", { id: loadingToast });
+        
+        // Save video URL to localStorage
+        localStorage.setItem("tryonVideoUrl", videoResult.video_url);
+        localStorage.setItem("tryonVideoGarmentName", garmentName);
+        
+        // Redirect to video result page
+        router.push("/main/tryonresult/video");
+      } else if (videoResult.status === "failed") {
+        throw new Error(videoResult.error || "Video generation failed");
+      }
+    } catch (error) {
+      console.error("Video generation error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Video generation failed",
+        { id: loadingToast }
+      );
+    } finally {
+      setIsGeneratingVideo(false);
+      setVideoProgress(0);
+    }
   };
 
   return (
@@ -139,11 +219,20 @@ export default function TryOnResultPage() {
        <div className="grid grid-cols-2 gap-3 mb-4">
   <button
     onClick={handleGenerateVideo}
-    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg transition font-medium"
+    disabled={isGeneratingVideo}
+    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    {/* 🔹 Increased icon size */}
-    <Video className="w-5 h-5" />
-    Generate Video
+    {isGeneratingVideo ? (
+      <>
+        <Loader2 className="w-5 h-5 animate-spin" />
+        Generating...
+      </>
+    ) : (
+      <>
+        <Video className="w-5 h-5" />
+        Generate Video
+      </>
+    )}
   </button>
 
   <button

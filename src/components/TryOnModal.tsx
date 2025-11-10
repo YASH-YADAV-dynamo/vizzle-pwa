@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { X, Loader2, Download, Share2, Sparkles } from "lucide-react";
+import { X, Loader2, Download, Share2, Sparkles, Video } from "lucide-react";
 import { VizzleAPI } from "@/lib/api/vizzle-api";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,14 +30,31 @@ export default function TryOnModal({
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoStatusMessage, setVideoStatusMessage] = useState("");
 
   useEffect(() => {
     if (isOpen && !resultUrl) {
       handleTryOn();
     }
+    // Reset video state when modal closes
+    if (!isOpen) {
+      setVideoUrl(null);
+      setVideoProgress(0);
+      setVideoStatusMessage("");
+      setIsGeneratingVideo(false);
+    }
   }, [isOpen]);
 
   const handleTryOn = async () => {
+    // Reset video state for new try-on
+    setVideoUrl(null);
+    setVideoProgress(0);
+    setVideoStatusMessage("");
+    setIsGeneratingVideo(false);
+    
     setIsProcessing(true);
     setProgress(10);
     setStatusMessage("Uploading your photo...");
@@ -174,6 +191,68 @@ export default function TryOnModal({
     }
   };
 
+  const handleGenerateVideo = async () => {
+    if (!resultUrl) {
+      toast.error("Please complete try-on first");
+      return;
+    }
+
+    setIsGeneratingVideo(true);
+    setVideoProgress(10);
+    setVideoStatusMessage("Initializing video generation...");
+
+    try {
+      // Generate video from the try-on result image
+      const videoResponse = await VizzleAPI.generateVideo({
+        image_url: resultUrl,
+        motion_type: "subtle_walk",
+        duration: 3,
+        fps: 24,
+      });
+
+      setVideoProgress(30);
+      setVideoStatusMessage("Generating video... This may take 60-90 seconds");
+
+      // Wait for video generation to complete
+      const videoResult = await VizzleAPI.waitForVideo(videoResponse.id);
+
+      if (videoResult.status === "succeeded" && videoResult.video_url) {
+        setVideoUrl(videoResult.video_url);
+        setVideoProgress(100);
+        setVideoStatusMessage("Video ready!");
+        toast.success("Video generated successfully!");
+      } else if (videoResult.status === "failed") {
+        throw new Error(videoResult.error || "Video generation failed");
+      }
+    } catch (error) {
+      console.error("Video generation error:", error);
+      toast.error(error instanceof Error ? error.message : "Video generation failed");
+      setVideoStatusMessage("Failed. Please try again.");
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  };
+
+  const handleDownloadVideo = async () => {
+    if (!videoUrl) return;
+
+    try {
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vizzle-tryon-video-${garmentName.replace(/\s+/g, "-")}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Video downloaded successfully!");
+    } catch (error) {
+      toast.error("Video download failed");
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -219,6 +298,7 @@ export default function TryOnModal({
           {/* Result State */}
           {resultUrl && (
             <div className="space-y-4">
+              {/* Image Result */}
               <div className="relative w-full aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden">
                 <Image
                   src={resultUrl}
@@ -234,6 +314,65 @@ export default function TryOnModal({
                   ready!
                 </p>
               </div>
+
+              {/* Video Generation Section */}
+              {!videoUrl && !isGeneratingVideo && (
+                <button
+                  onClick={handleGenerateVideo}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition font-medium shadow-md"
+                >
+                  <Video className="w-5 h-5" />
+                  Generate Video
+                </button>
+              )}
+
+              {/* Video Generation Progress */}
+              {isGeneratingVideo && (
+                <div className="flex flex-col items-center justify-center py-6 bg-gray-50 rounded-xl">
+                  <div className="relative">
+                    <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-semibold text-purple-600">
+                        {videoProgress}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-600 text-center px-4">
+                    {videoStatusMessage}
+                  </p>
+                  <div className="w-full max-w-xs mt-3 bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${videoProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Video Result */}
+              {videoUrl && (
+                <div className="space-y-3">
+                  <div className="relative w-full aspect-[3/4] bg-gray-900 rounded-xl overflow-hidden">
+                    <video
+                      src={videoUrl}
+                      controls
+                      className="w-full h-full object-contain"
+                      autoPlay
+                      loop
+                      muted
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <button
+                    onClick={handleDownloadVideo}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Video
+                  </button>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3">

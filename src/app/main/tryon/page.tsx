@@ -118,14 +118,15 @@ function TryOnPageContent() {
   };
 
   const handleTryOnSuccess = (resultUrl: string) => {
+    // Save to localStorage first
     localStorage.setItem("tryonResult", resultUrl);
     localStorage.setItem(
       "tryonGarmentName",
       selectedGarmentForTryOn?.name || ""
     );
-    setTimeout(() => {
-      router.push("/main/tryonresult");
-    }, 1000);
+    // Close modal and redirect immediately
+    setShowTryOnModal(false);
+    router.push("/main/tryonresult");
   };
 
   return (
