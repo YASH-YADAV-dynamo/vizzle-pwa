@@ -1,6 +1,7 @@
 import {initializeApp, getApp, getApps} from "firebase/app";
 import {getAuth, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
 import {getFirestore} from "firebase/firestore";
+import {getStorage} from "firebase/storage";
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -39,14 +40,16 @@ const firebaseConfig = {
 let app: any;
 let auth: any;
 let firestore: any;
+let storage: any;
 
 if (typeof window !== 'undefined') {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   auth = getAuth(app);
   firestore = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export { auth, firestore, app };
+export { auth, firestore, storage, app };
 
 // Export functions to create providers (avoids SSR issues)
 export const getGoogleProvider = () => {

@@ -18,11 +18,10 @@ function TryOnPageContent() {
   const [garments, setGarments] = useState<any[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [modelImage, setModelImage] = useState<string | null>(null);
+  const modelInputRef = useRef<HTMLInputElement>(null);
   const [showTryOnModal, setShowTryOnModal] = useState(false);
   const [selectedGarmentForTryOn, setSelectedGarmentForTryOn] =
     useState<any>(null);
-
-  const modelInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("tryonProducts") || "[]");
@@ -62,7 +61,10 @@ function TryOnPageContent() {
         localStorage.setItem("modelImage", result);
       };
       reader.readAsDataURL(file);
-      event.currentTarget.value = "";
+      // Reset input properly using ref
+      if (modelInputRef.current) {
+        modelInputRef.current.value = "";
+      }
     }
   };
 
@@ -158,7 +160,7 @@ function TryOnPageContent() {
               {/* 🖼️ Gallery Icon (top-left) */}
               <button
                 type="button"
-                className="absolute top-2 left-2 bg-white/80 p-1 rounded-full shadow hover:bg-gray-100 z-20"
+                className="absolute top-2 left-2 bg-white/80 p-1 rounded-full shadow hover:bg-gray-100 z-[100]"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation(); // ✅ stop navigation
@@ -167,6 +169,7 @@ function TryOnPageContent() {
                   ) as HTMLInputElement | null;
                   input?.click();
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <ImageIcon className="h-4 w-4 text-gray-600" />
               </button>
@@ -309,7 +312,7 @@ function TryOnPageContent() {
                     {/* 🖼️ Gallery Icon (top-left) */}
                     <button
                       type="button"
-                      className="absolute top-2 left-2 bg-white/80 p-1 rounded-full shadow hover:bg-gray-100 z-20"
+                      className="absolute top-2 left-2 bg-white/80 p-1 rounded-full shadow hover:bg-gray-100 z-[100]"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation(); // ✅ stop redirect
@@ -318,6 +321,7 @@ function TryOnPageContent() {
                         ) as HTMLInputElement | null;
                         input?.click();
                       }}
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       <ImageIcon className="h-4 w-4 text-gray-600" />
                     </button>

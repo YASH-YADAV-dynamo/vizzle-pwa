@@ -7,13 +7,18 @@ import { toast } from "react-hot-toast";
 import { IoArrowBack } from "react-icons/io5";
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { storage } from "@/firebase/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { updateProfile } from "firebase/auth";
 
 export default function EditProfilePage() {
   const router = useRouter();
   const { user, refreshUserProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -42,6 +47,10 @@ export default function EditProfilePage() {
           gender: profile.gender || "",
           location: profile.location || "",
         });
+        // Load photo from profile or user auth
+        setPhotoURL(profile.photoURL || user.photoURL || null);
+      } else {
+        // If no profile, use auth photo
         setPhotoURL(user.photoURL || null);
       }
     } catch (error) {
@@ -57,7 +66,7 @@ export default function EditProfilePage() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -65,14 +74,15 @@ export default function EditProfilePage() {
         return;
       }
       
-      // Preview image (Firebase Storage upload can be added later)
+      // Preview image immediately
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoURL(reader.result as string);
       };
       reader.readAsDataURL(file);
       
-      toast.info("Photo upload to Firebase Storage coming soon!");
+      // Store file for upload on save
+      setPhotoFile(file);
     }
   };
 
@@ -92,13 +102,37 @@ export default function EditProfilePage() {
     try {
       setSaving(true);
 
-      // Update profile data
+      let uploadedPhotoURL = photoURL;
+
+      // Upload photo to Firebase Storage if a new file was selected
+      if (photoFile && user) {
+        setUploadingPhoto(true);
+        try {
+          const storageRef = ref(storage, `profile-photos/${user.uid}/${Date.now()}_${photoFile.name}`);
+          const snapshot = await uploadBytes(storageRef, photoFile);
+          uploadedPhotoURL = await getDownloadURL(snapshot.ref);
+          
+          // Update Firebase Auth profile photo
+          await updateProfile(user, { photoURL: uploadedPhotoURL });
+          
+          setPhotoURL(uploadedPhotoURL);
+          toast.success("Photo uploaded successfully!");
+        } catch (uploadError) {
+          console.error("Error uploading photo:", uploadError);
+          toast.error("Failed to upload photo, but profile was updated");
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
+      // Update profile data in Firestore
       await updateUserProfile(user.uid, {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         phoneNumber: formData.phoneNumber.trim(),
         gender: formData.gender,
         location: formData.location.trim(),
+        photoURL: uploadedPhotoURL || undefined,
       });
 
       // Refresh user profile in context
@@ -115,6 +149,7 @@ export default function EditProfilePage() {
       toast.error("Failed to update profile");
     } finally {
       setSaving(false);
+      setPhotoFile(null);
     }
   };
 
@@ -291,13 +326,13 @@ export default function EditProfilePage() {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingPhoto}
               className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
             >
-              {saving ? (
+              {(saving || uploadingPhoto) ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving...
+                  {uploadingPhoto ? "Uploading photo..." : "Saving..."}
                 </>
               ) : (
                 "Save Changes"
