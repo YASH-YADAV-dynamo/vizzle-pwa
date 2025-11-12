@@ -32,27 +32,39 @@ export default function ReviewPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await submitFeedback(user.uid, {
-        rating: rating || 0,
-        comment: review || "",
-      });
-      
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        setRating(0);
-        setReview("");
-        router.back();
-      }, 2000);
-      toast.success("Thank you for your feedback!");
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-      toast.error("Failed to submit feedback. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+            setIsSubmitting(true);
+            try {
+              await submitFeedback(user.uid, {
+                rating: rating || 0,
+                comment: review || "",
+              });
+              
+              // Mark that user has given feedback
+              localStorage.setItem("hasGivenLogoutFeedback", "true");
+              
+              setShowToast(true);
+              toast.success("Thank you for your feedback!");
+              
+              setTimeout(() => {
+                setShowToast(false);
+                setRating(0);
+                setReview("");
+                // Check if user came from logout flow
+                const cameFromLogout = localStorage.getItem("cameFromLogout");
+                if (cameFromLogout === "true") {
+                  localStorage.removeItem("cameFromLogout");
+                  // Go back to profile page which will show logout modal
+                  router.push("/main/profile");
+                } else {
+                  router.back();
+                }
+              }, 2000);
+            } catch (error) {
+              console.error("Error submitting feedback:", error);
+              toast.error("Failed to submit feedback. Please try again.");
+            } finally {
+              setIsSubmitting(false);
+            }
   };
 
   return (

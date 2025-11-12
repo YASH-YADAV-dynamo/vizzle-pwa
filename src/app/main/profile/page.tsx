@@ -6,7 +6,6 @@ import {
   Info,
   LogOut,
   FileText,
-  Edit,
   User,
   FileLock,
   FileQuestion,
@@ -19,7 +18,6 @@ import {
   Phone,
   Users,
 } from "lucide-react";
-import Link from "next/link";
 import { IoArrowBack } from "react-icons/io5";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +35,7 @@ export default function ProfilePage() {
   });
   const [fullProfile, setFullProfile] = useState<any>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
 
   useEffect(() => {
     // Set photo from Firebase Auth or userProfile
@@ -47,6 +46,17 @@ export default function ProfilePage() {
     // Load user stats and profile data
     if (user) {
       loadUserData();
+    }
+
+    // Check if user just came back from feedback page (logout flow)
+    const cameFromLogout = localStorage.getItem("cameFromLogout");
+    const hasGivenFeedback = localStorage.getItem("hasGivenLogoutFeedback");
+    if (cameFromLogout === "true" && hasGivenFeedback === "true") {
+      localStorage.removeItem("cameFromLogout");
+      // Show logout modal after feedback
+      setTimeout(() => {
+        setShowLogoutModal(true);
+      }, 500);
     }
   }, [user]);
 
@@ -111,13 +121,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Edit Icon */}
-          <Link
-            href="/main/profile/editProfile"
-            className="absolute bottom-1 right-1 bg-blue-600 p-2 rounded-full shadow-md hover:bg-blue-700 transition"
-          >
-            <Edit size={14} color="white" />
-          </Link>
         </div>
 
         <h2 className="mt-3 text-xl font-bold text-gray-800">
@@ -277,7 +280,10 @@ export default function ProfilePage() {
         {/* Logout Button - Prominent at Bottom */}
         <div className="mt-6">
           <button
-            onClick={() => setShowLogoutModal(true)}
+            onClick={() => {
+              // Always show feedback popup first
+              setShowFeedbackPopup(true);
+            }}
             className="w-full flex items-center justify-center gap-3 bg-red-50 border-2 border-red-200 text-red-600 rounded-xl px-4 py-4 hover:bg-red-100 hover:border-red-300 transition font-medium shadow-sm"
           >
             <LogOut size={20} />
@@ -285,6 +291,44 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* Feedback Popup - Shown before logout (Center) */}
+      {showFeedbackPopup && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50 p-4">
+          <div className="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-md text-center animate-in fade-in duration-300">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Give us your feedback 💬
+            </h3>
+            <p className="text-gray-600 text-sm mb-5">
+              Your opinion helps us improve your virtual try-on experience.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowFeedbackPopup(false);
+                  // Mark that user is coming from logout flow
+                  localStorage.setItem("cameFromLogout", "true");
+                  // Navigate to feedback page
+                  router.push("/main/profile/rate");
+                }}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
+              >
+                Give Feedback
+              </button>
+              <button
+                onClick={() => {
+                  setShowFeedbackPopup(false);
+                  // Show logout confirmation modal
+                  setShowLogoutModal(true);
+                }}
+                className="flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (

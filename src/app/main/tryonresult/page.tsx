@@ -13,7 +13,6 @@ export default function TryOnResultPage() {
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [resultUrl, setResultUrl] = useState<string>("/v1.jpg");
   const [garmentName, setGarmentName] = useState<string>("Product");
-  const [showFeedback, setShowFeedback] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [buyLink, setBuyLink] = useState<string | null>(null);
@@ -40,22 +39,6 @@ export default function TryOnResultPage() {
 
     if (savedProductImage) {
       setProductImage(savedProductImage);
-    }
-  }, []);
-
-   useEffect(() => {
-    // Check if feedback was already shown
-    const hasSeenFeedback = localStorage.getItem("hasSeenFeedback");
-
-    if (!hasSeenFeedback) {
-      // Show after 10 seconds (10000 ms)
-      const timer = setTimeout(() => {
-        setShowFeedback(true);
-        localStorage.setItem("hasSeenFeedback", "true");
-      }, 10000);
-
-      // Cleanup if user navigates before 10s
-      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -321,36 +304,6 @@ export default function TryOnResultPage() {
         )}
       </div>
 
-      {/* Feedback Card - Bottom Popup */}
-    {showFeedback && (
-  <div className="fixed inset-0 flex justify-end items-end bg-black/40 z-50 p-4">
-    <div className="bg-white shadow-2xl rounded-t-2xl rounded-b-2xl p-6 w-full max-w-md text-center animate-in slide-in-from-bottom duration-300">
-      <h3 className="text-lg font-semibold text-gray-800 mb-3">
-        Give us your feedback 💬
-      </h3>
-      <p className="text-gray-600 text-sm mb-5">
-        Your opinion helps us improve your virtual try-on experience.
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={() => {
-            setShowFeedback(false);
-            router.push("/main/profile/rate");
-          }}
-          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
-        >
-          Give Feedback
-        </button>
-        <button
-          onClick={() => setShowFeedback(false)}
-          className="flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition"
-        >
-          Maybe Later
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
     </div>
   );
