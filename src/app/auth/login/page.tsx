@@ -8,7 +8,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult,
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from "firebase/auth";
@@ -30,19 +29,45 @@ export default function LoginPage() {
   // Import useAuth to check if user is already logged in
   const { user, loading: authLoading } = typeof window !== 'undefined' ? require('@/contexts/AuthContext').useAuth() : { user: null, loading: false };
 
-  // Check if running in PWA mode
-  const isPWA = typeof window !== 'undefined' && (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
-  );
+  // Check if running in PWA mode - recalculate each time to ensure accuracy
+  const checkIsPWA = () => {
+    if (typeof window === 'undefined') return false;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOSStandalone = (window.navigator as any).standalone === true;
+    const isPWA = isStandalone || isIOSStandalone;
+    return isPWA;
+  };
+  
+  const [isPWA, setIsPWA] = React.useState(false);
+  
+  // Update PWA status on mount and when needed
+  React.useEffect(() => {
+    setIsPWA(checkIsPWA());
+  }, []);
 
-  // Redirect if already logged in
+  // Debug: Log domain information on mount (especially for PWA)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('🔍 Domain Debug Info:');
+      console.log('  - Hostname:', window.location.hostname);
+      console.log('  - Origin:', window.location.origin);
+      console.log('  - Full URL:', window.location.href);
+      console.log('  - Is PWA:', isPWA);
+      console.log('  - Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser');
+      console.log('  - Firebase Auth Domain:', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'Not set');
+      console.log('⚠️  If you see "unauthorized domain" error, add the hostname above to Firebase Console > Authentication > Settings > Authorized domains');
+    }
+  }, [isPWA]);
+
+  // Redirect if already logged in (but not if we're processing a redirect result)
   if (typeof window !== 'undefined') {
     React.useEffect(() => {
-      if (!authLoading && user) {
+      const redirectInProgress = sessionStorage.getItem('authRedirectInProgress');
+      // Don't redirect if we're processing a redirect result - let AuthContext handle it
+      if (!authLoading && user && !redirectInProgress) {
         router.push("/main");
       }
-    }, [user, authLoading]);
+    }, [user, authLoading, router]);
   }
 
   // 🔹 Email/Password Login
@@ -128,53 +153,94 @@ export default function LoginPage() {
     }
   };
 
-  // Handle redirect result on page load (for PWA) - must be after handleUserProfile is defined
-  React.useEffect(() => {
-    if (typeof window === 'undefined' || !auth) return;
-
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          await handleUserProfile(result.user);
-          router.push("/main");
-        }
-      } catch (error: any) {
-        console.error("Redirect result error:", error);
-        if (error.code === "auth/account-exists-with-different-credential") {
-          setError("An account already exists with this email. Please use a different sign-in method.");
-        } else {
-          setError(error.message || "Authentication failed.");
-        }
-      }
-    };
-
-    handleRedirectResult();
-  }, [router]);
+  // Note: Redirect result is now handled globally in AuthContext
+  // This ensures it works regardless of which page the user lands on after redirect
 
   // 🔹 Google Sign-In
   const handleGoogleSignIn = async () => {
+    // Recheck PWA status at click time
+    const currentIsPWA = checkIsPWA();
+    
+    console.log('🔵 Google Sign-In button clicked');
+    console.log('  - isPWA (state):', isPWA);
+    console.log('  - isPWA (current):', currentIsPWA);
+    console.log('  - window.location:', typeof window !== 'undefined' ? window.location.href : 'N/A');
+    console.log('  - Display mode:', typeof window !== 'undefined' ? window.matchMedia('(display-mode: standalone)').matches : 'N/A');
+    console.log('  - Navigator standalone:', typeof window !== 'undefined' ? (window.navigator as any).standalone : 'N/A');
+    
     setError(null);
     setLoading(true);
 
     try {
       const provider = new GoogleAuthProvider();
       
-      // Use redirect for PWA, popup for regular web
-      if (isPWA) {
-        await signInWithRedirect(auth, provider);
-        // Don't set loading to false here as redirect will navigate away
+      // Check if auth is initialized
+      if (!auth) {
+        console.error('❌ Firebase auth not initialized');
+        setError('Authentication service not available. Please refresh the page.');
+        setLoading(false);
         return;
+      }
+      
+      // Always try redirect first in PWA mode, fallback to popup if needed
+      // Also try redirect if popup fails (some browsers block popups)
+      if (currentIsPWA) {
+        console.log('🚀 PWA Mode detected: Using redirect flow');
+        console.log('  - Current origin:', window.location.origin);
+        console.log('  - Current hostname:', window.location.hostname);
+        console.log('  - Auth object:', auth ? 'Initialized' : 'Not initialized');
+        console.log('  - Starting redirect to Google...');
+        
+        try {
+          // Set a flag to indicate redirect is in progress
+          sessionStorage.setItem('authRedirectInProgress', 'true');
+          
+          console.log('  - Calling signInWithRedirect...');
+          await signInWithRedirect(auth, provider);
+          console.log('✅ Redirect initiated successfully - page should redirect now');
+          // Page will redirect, so we don't need to do anything else
+          // The global handler in AuthContext will process the result when user returns
+          return;
+        } catch (redirectError: any) {
+          console.error('❌ Redirect error:', redirectError);
+          console.error('  - Error code:', redirectError.code);
+          console.error('  - Error message:', redirectError.message);
+          console.error('  - Full error:', redirectError);
+          sessionStorage.removeItem('authRedirectInProgress');
+          setError(redirectError.message || 'Failed to start authentication. Please try again.');
+          setLoading(false);
+          return;
+        }
       } else {
-        const userCredential = await signInWithPopup(auth, provider);
-        const user = userCredential.user;
-        await handleUserProfile(user);
-        router.push("/main");
+        // Try popup first for regular web
+        console.log('🌐 Web Mode: Trying popup first');
+        try {
+          const userCredential = await signInWithPopup(auth, provider);
+          const user = userCredential.user;
+          await handleUserProfile(user);
+          router.push("/main");
+        } catch (popupError: any) {
+          console.warn('⚠️ Popup failed, trying redirect instead:', popupError);
+          // If popup fails (blocked or other error), fallback to redirect
+          if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
+            console.log('🔄 Falling back to redirect flow');
+            sessionStorage.setItem('authRedirectInProgress', 'true');
+            await signInWithRedirect(auth, provider);
+            return;
+          }
+          throw popupError;
+        }
       }
     } catch (error: any) {
       console.error("Google sign-in error:", error);
+      console.error("Error code:", error.code);
+      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+      
       if (error.code === "auth/popup-closed-by-user") {
         setError("Sign-in was cancelled.");
+      } else if (error.code === "auth/unauthorized-domain") {
+        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
       } else if (error.code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please use a different sign-in method.");
       } else {
@@ -186,6 +252,9 @@ export default function LoginPage() {
 
   // 🔹 Facebook Sign-In
   const handleFacebookSignIn = async () => {
+    console.log('🔵 Facebook Sign-In button clicked');
+    console.log('  - isPWA:', isPWA);
+    
     setError(null);
     setLoading(true);
 
@@ -194,21 +263,41 @@ export default function LoginPage() {
       provider.addScope('email');
       provider.addScope('public_profile');
       
-      // Use redirect for PWA, popup for regular web
-      if (isPWA) {
+      // Recheck PWA status at click time
+      const currentIsPWA = checkIsPWA();
+      
+      // Always try redirect first in PWA mode
+      if (currentIsPWA) {
+        console.log('🚀 PWA Mode: Using redirect flow for Facebook');
+        sessionStorage.setItem('authRedirectInProgress', 'true');
         await signInWithRedirect(auth, provider);
-        // Don't set loading to false here as redirect will navigate away
         return;
       } else {
-        const userCredential = await signInWithPopup(auth, provider);
-        const user = userCredential.user;
-        await handleUserProfile(user);
-        router.push("/main");
+        try {
+          const userCredential = await signInWithPopup(auth, provider);
+          const user = userCredential.user;
+          await handleUserProfile(user);
+          router.push("/main");
+        } catch (popupError: any) {
+          if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
+            console.log('🔄 Falling back to redirect flow');
+            sessionStorage.setItem('authRedirectInProgress', 'true');
+            await signInWithRedirect(auth, provider);
+            return;
+          }
+          throw popupError;
+        }
       }
     } catch (error: any) {
       console.error("Facebook sign-in error:", error);
+      console.error("Error code:", error.code);
+      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+      
       if (error.code === "auth/popup-closed-by-user") {
         setError("Sign-in was cancelled.");
+      } else if (error.code === "auth/unauthorized-domain") {
+        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
       } else if (error.code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please use a different sign-in method.");
       } else {

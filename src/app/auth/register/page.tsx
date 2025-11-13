@@ -9,7 +9,6 @@ import {
   sendEmailVerification,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult,
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from "firebase/auth";
@@ -41,13 +40,29 @@ export default function RegisterPage() {
     (window.navigator as any).standalone === true
   );
 
-  // Redirect if already logged in
+  // Debug: Log domain information on mount (especially for PWA)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('🔍 Domain Debug Info:');
+      console.log('  - Hostname:', window.location.hostname);
+      console.log('  - Origin:', window.location.origin);
+      console.log('  - Full URL:', window.location.href);
+      console.log('  - Is PWA:', isPWA);
+      console.log('  - Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser');
+      console.log('  - Firebase Auth Domain:', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'Not set');
+      console.log('⚠️  If you see "unauthorized domain" error, add the hostname above to Firebase Console > Authentication > Settings > Authorized domains');
+    }
+  }, [isPWA]);
+
+  // Redirect if already logged in (but not if we're processing a redirect result)
   if (typeof window !== 'undefined') {
     React.useEffect(() => {
-      if (!authLoading && user) {
+      const redirectInProgress = sessionStorage.getItem('authRedirectInProgress');
+      // Don't redirect if we're processing a redirect result - let AuthContext handle it
+      if (!authLoading && user && !redirectInProgress) {
         router.push("/main");
       }
-    }, [user, authLoading]);
+    }, [user, authLoading, router]);
   }
 
   // 🔹 Helper: Create/Update Firestore User Profile for Social Login
@@ -90,30 +105,8 @@ export default function RegisterPage() {
     }
   };
 
-  // Handle redirect result on page load (for PWA) - must be after handleSocialUserProfile is defined
-  React.useEffect(() => {
-    if (typeof window === 'undefined' || !auth) return;
-
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          const providerId = result.user.providerData[0]?.providerId || "google.com";
-          await handleSocialUserProfile(result.user, providerId);
-          router.push("/main");
-        }
-      } catch (error: any) {
-        console.error("Redirect result error:", error);
-        if (error.code === "auth/account-exists-with-different-credential") {
-          setError("An account already exists with this email. Please login instead.");
-        } else {
-          setError(error.message || "Authentication failed.");
-        }
-      }
-    };
-
-    handleRedirectResult();
-  }, [router]);
+  // Note: Redirect result is now handled globally in AuthContext
+  // This ensures it works regardless of which page the user lands on after redirect
 
   // 🔹 Google Registration
   const handleGoogleRegister = async () => {
@@ -125,8 +118,24 @@ export default function RegisterPage() {
       
       // Use redirect for PWA, popup for regular web
       if (isPWA) {
-        await signInWithRedirect(auth, provider);
-        // Don't set loading to false here as redirect will navigate away
+        console.log('🚀 PWA Mode: Using redirect flow');
+        console.log('  - Current origin:', window.location.origin);
+        console.log('  - Current hostname:', window.location.hostname);
+        console.log('  - Redirecting to Google for authentication...');
+        console.log('  - Make sure this domain is authorized in Firebase Console');
+        
+        // Show loading state - user will see this briefly before redirect
+        setError(null);
+        
+        try {
+          await signInWithRedirect(auth, provider);
+          // Page will redirect, so we don't need to do anything else
+          // The global handler in AuthContext will process the result when user returns
+        } catch (redirectError: any) {
+          console.error('❌ Redirect error:', redirectError);
+          setError(redirectError.message || 'Failed to start authentication. Please try again.');
+          setLoading(false);
+        }
         return;
       } else {
         const userCredential = await signInWithPopup(auth, provider);
@@ -136,8 +145,14 @@ export default function RegisterPage() {
       }
     } catch (error: any) {
       console.error("Google registration error:", error);
+      console.error("Error code:", error.code);
+      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+      
       if (error.code === "auth/popup-closed-by-user") {
         setError("Registration was cancelled.");
+      } else if (error.code === "auth/unauthorized-domain") {
+        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
       } else if (error.code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please login instead.");
       } else {
@@ -170,8 +185,14 @@ export default function RegisterPage() {
       }
     } catch (error: any) {
       console.error("Facebook registration error:", error);
+      console.error("Error code:", error.code);
+      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+      
       if (error.code === "auth/popup-closed-by-user") {
         setError("Registration was cancelled.");
+      } else if (error.code === "auth/unauthorized-domain") {
+        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
       } else if (error.code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please login instead.");
       } else {

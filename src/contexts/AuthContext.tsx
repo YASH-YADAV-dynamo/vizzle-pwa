@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { User, onAuthStateChanged, signOut as firebaseSignOut, getRedirectResult } from "firebase/auth";
 import { auth, firestore } from "@/firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 interface UserProfile {
@@ -64,6 +64,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetchUserProfile(user.uid);
     }
   };
+
+  // Handle redirect result globally (for PWA authentication)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !auth) return;
+
+    const handleRedirectResult = async () => {
+      try {
+        console.log('🔍 Checking for redirect result...');
+        const result = await getRedirectResult(auth);
+        
+        if (result && result.user) {
+          console.log('✅ Redirect authentication successful:', result.user.email);
+          console.log('  - User ID:', result.user.uid);
+          console.log('  - Provider:', result.user.providerData[0]?.providerId);
+          
+          // Set user immediately so auth state updates
+          setUser(result.user);
+          
+          // Create/update user profile
+          const userDocRef = doc(firestore, "users", result.user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          const providerId = result.user.providerData[0]?.providerId || "google.com";
+          const isGoogleSignIn = providerId === "google.com";
+          const isFacebookSignIn = providerId === "facebook.com";
+
+          if (!userDoc.exists()) {
+            // Create new profile
+            let finalFirstName = "";
+            let finalLastName = "";
+            
+            if ((isGoogleSignIn || isFacebookSignIn) && result.user.displayName) {
+              const nameParts = result.user.displayName.split(" ");
+              finalFirstName = nameParts[0] || "";
+              finalLastName = nameParts.slice(1).join(" ") || "";
+            }
+
+            const profileData: any = {
+              firstName: finalFirstName,
+              lastName: finalLastName,
+              gender: "",
+              email: result.user.email,
+              provider: providerId,
+              photoURL: result.user.photoURL || null,
+              providers: [providerId],
+            };
+            
+            await setDoc(userDocRef, profileData);
+            console.log('✅ User profile created');
+          } else {
+            // Update existing profile
+            const existingData = userDoc.data();
+            await setDoc(userDocRef, {
+              ...existingData,
+              photoURL: result.user.photoURL || existingData.photoURL,
+              providers: existingData.providers?.includes(providerId)
+                ? existingData.providers
+                : [...(existingData.providers || []), providerId],
+            }, { merge: true });
+            console.log('✅ User profile updated');
+          }
+
+          // Fetch the updated profile
+          await fetchUserProfile(result.user.uid);
+          
+          // Clear the redirect flag
+          sessionStorage.removeItem('authRedirectInProgress');
+          
+          // Wait a moment for state to update, then redirect
+          setTimeout(() => {
+            console.log('🔄 Redirecting to /main...');
+            router.push("/main");
+            // Force a hard navigation to ensure the redirect happens
+            window.location.href = "/main";
+          }, 100);
+        } else {
+          console.log('ℹ️ No redirect result found (normal if not returning from auth)');
+          // Clear the redirect flag if it exists
+          sessionStorage.removeItem('authRedirectInProgress');
+        }
+      } catch (error: any) {
+        console.error("❌ Redirect result error:", error);
+        console.error("Error code:", error.code);
+        console.error("Error message:", error.message);
+        console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+        
+        // Clear the redirect flag on error
+        sessionStorage.removeItem('authRedirectInProgress');
+        
+        // Don't set error state here as this is a global handler
+        // Individual pages can handle their own errors
+      }
+    };
+
+    // Only handle redirect result once on mount
+    // But also check if we're returning from a redirect
+    const redirectInProgress = sessionStorage.getItem('authRedirectInProgress');
+    if (redirectInProgress) {
+      console.log('🔄 Redirect in progress detected, processing result...');
+    }
+    
+    handleRedirectResult();
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !auth) {

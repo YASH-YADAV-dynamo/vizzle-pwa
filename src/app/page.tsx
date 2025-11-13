@@ -14,6 +14,13 @@ export default function SplashPage() {
   const handleRedirect = useCallback(() => {
     if (typeof window === "undefined") return;
 
+    // Don't redirect if we're processing an auth redirect result
+    const redirectInProgress = sessionStorage.getItem("authRedirectInProgress");
+    if (redirectInProgress) {
+      console.log('⏳ Auth redirect in progress, skipping splash redirect');
+      return;
+    }
+
     if (user) {
       // User is logged in, go to main
       router.push("/main");
