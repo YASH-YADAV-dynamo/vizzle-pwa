@@ -139,12 +139,12 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.08);
+    transform: scale(1.25);
   }
 }
 
 .animate-magnify {
-  animation: magnify 1.5s ease-in-out infinite;
+  animation: magnify 2s ease-in-out infinite;
 }
 
 @keyframes fade-in-up {

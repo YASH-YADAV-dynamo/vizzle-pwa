@@ -14,17 +14,25 @@ export default function SplashScreen() {
 
     // Check if splash has been shown before (only on client)
     if (typeof window !== "undefined") {
+      // Detect if running as PWA
+      const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+      const isPWA = (window.navigator as any).standalone || isStandalone;
+      
+      // For PWA: Always show splash on app launch (every time app opens)
+      // For Web: Show splash only once per session
       const hasShownSplash = sessionStorage.getItem("splashShown");
       
-      if (hasShownSplash) {
-        // If already shown in this session, don't show again
+      // Only skip if it's web and splash was already shown
+      if (hasShownSplash && !isPWA) {
         return;
       }
 
-      // Mark splash as shown
-      sessionStorage.setItem("splashShown", "true");
+      // Mark splash as shown (for web, PWA doesn't need this check)
+      if (!isPWA) {
+        sessionStorage.setItem("splashShown", "true");
+      }
 
-      // Show splash screen
+      // Show splash screen immediately
       setShouldRender(true);
       setIsVisible(true);
 
