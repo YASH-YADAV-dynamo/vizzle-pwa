@@ -231,7 +231,16 @@ const filteredProducts = products.filter((p) => {
 
       {/* Categories */}
       <div className="px-4 mt-4">
-        <h2 className="text-lg font-semibold mb-3">Categories</h2>
+        <div className="flex items-center gap-0 mb-3">
+          <Image 
+            src="/logo1.png" 
+            alt="Logo" 
+            width={56} 
+            height={56} 
+            className="object-contain flex-shrink-0 -mr-2"
+          />
+          <h2 className="text-lg font-semibold">Categories</h2>
+        </div>
         <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
           {categories.map((cat) => (
             <div
@@ -251,14 +260,8 @@ const filteredProducts = products.filter((p) => {
 
       {/* Search */}
       <div className="px-4 mt-3">
-        <div className="flex items-center gap-2 w-full bg-white border border-gray-300 rounded-full px-3 py-2 shadow-md ml-2">
-          <Image 
-            src="/logo1.png" 
-            alt="Logo" 
-            width={48} 
-            height={48} 
-            className="object-contain flex-shrink-0"
-          />
+        <div className="flex items-center gap-2 w-full bg-white border border-gray-300 rounded-full px-4 py-2 shadow-md">
+          <Search className="w-5 h-5 text-gray-600" />
           <input
             type="text"
             placeholder="Search with my product"
@@ -266,7 +269,6 @@ const filteredProducts = products.filter((p) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent outline-none text-sm w-full text-gray-800 placeholder-gray-500"
           />
-          <Search className="w-5 h-5 text-gray-600 flex-shrink-0" />
         </div>
       </div>
 
