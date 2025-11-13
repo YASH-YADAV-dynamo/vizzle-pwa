@@ -28,12 +28,12 @@ export default function SplashScreen() {
       setShouldRender(true);
       setIsVisible(true);
 
-      // Hide splash after 2.5 seconds
+      // Hide splash after 2 seconds
       const timer = setTimeout(() => {
         setIsVisible(false);
         // Remove from DOM after fade out animation
         setTimeout(() => setShouldRender(false), 500);
-      }, 2500);
+      }, 2000);
 
       return () => clearTimeout(timer);
     }
@@ -48,18 +48,16 @@ export default function SplashScreen() {
         isVisible ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="flex flex-col items-center justify-center animate-fade-in-scale">
-        {/* Logo with animation */}
-        <div className="animate-pulse-slow">
-          <Image
-            src="/logo.png"
-            alt="Vizzle Logo"
-            width={200}
-            height={80}
-            className="object-contain"
-            priority
-          />
-        </div>
+      {/* Logo with magnifying animation */}
+      <div className="animate-magnify">
+        <Image
+          src="/logo.png"
+          alt="Vizzle Logo"
+          width={200}
+          height={80}
+          className="object-contain"
+          priority
+        />
       </div>
     </div>
   );
