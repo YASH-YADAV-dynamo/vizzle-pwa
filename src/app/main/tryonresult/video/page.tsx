@@ -9,6 +9,7 @@ import { toast } from "react-hot-toast";
 export default function TryOnVideoResultPage() {
   const router = useRouter();
   const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [garmentName, setGarmentName] = useState<string>("Product");
 
@@ -32,6 +33,11 @@ export default function TryOnVideoResultPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleShareClick = () => {
+    // Show feedback modal first
+    setShowFeedbackModal(true);
+  };
 
   const handleShare = async (platform?: string) => {
     if (!platform && navigator.share) {
@@ -139,7 +145,7 @@ export default function TryOnVideoResultPage() {
               <Download className="w-4 h-4 text-gray-700" />
             </button>
             <button
-              onClick={() => handleShare()}
+              onClick={handleShareClick}
               className="bg-white hover:bg-gray-50 p-3 rounded-full shadow-lg transition-all hover:scale-110"
               aria-label="Share"
             >
@@ -172,6 +178,42 @@ export default function TryOnVideoResultPage() {
         >
           Try another outfit
         </button>
+
+        {/* Feedback Modal - Shown before share */}
+        {showFeedbackModal && (
+          <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50 p-4">
+            <div className="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-md text-center animate-in fade-in duration-300">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                Give us your feedback 💬
+              </h3>
+              <p className="text-gray-600 text-sm mb-5">
+                Your opinion helps us improve your virtual try-on experience.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowFeedbackModal(false);
+                    // Navigate to feedback page
+                    router.push("/main/profile/rate");
+                  }}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
+                >
+                  Give Feedback
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFeedbackModal(false);
+                    // Show share modal after feedback
+                    setShowShareOptions(true);
+                  }}
+                  className="flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Share Modal */}
         {showShareOptions && (

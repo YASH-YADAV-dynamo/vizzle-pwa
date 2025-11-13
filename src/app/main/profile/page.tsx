@@ -48,16 +48,8 @@ export default function ProfilePage() {
       loadUserData();
     }
 
-    // Check if user just came back from feedback page (logout flow)
-    const cameFromLogout = localStorage.getItem("cameFromLogout");
-    const hasGivenFeedback = localStorage.getItem("hasGivenLogoutFeedback");
-    if (cameFromLogout === "true" && hasGivenFeedback === "true") {
-      localStorage.removeItem("cameFromLogout");
-      // Show logout modal after feedback
-      setTimeout(() => {
-        setShowLogoutModal(true);
-      }, 500);
-    }
+    // Clean up any leftover logout flow flags
+    localStorage.removeItem("cameFromLogout");
   }, [user]);
 
   const loadUserData = async () => {
@@ -269,7 +261,7 @@ export default function ProfilePage() {
         <ProfileItem
           icon={<Share2 size={20} />}
           label="Connect With Us"
-          onClick={() => handleNavigation("/main/profile/connect")}
+          onClick={() => setShowFeedbackPopup(true)}
         />
         <ProfileItem
           icon={<Handshake size={20} />}
@@ -281,8 +273,8 @@ export default function ProfilePage() {
         <div className="mt-6">
           <button
             onClick={() => {
-              // Always show feedback popup first
-              setShowFeedbackPopup(true);
+              // Directly show logout confirmation modal
+              setShowLogoutModal(true);
             }}
             className="w-full flex items-center justify-center gap-3 bg-red-50 border-2 border-red-200 text-red-600 rounded-xl px-4 py-4 hover:bg-red-100 hover:border-red-300 transition font-medium shadow-sm"
           >
@@ -292,7 +284,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Feedback Popup - Shown before logout (Center) */}
+      {/* Feedback Popup - Shown from Connect With Us (Center) */}
       {showFeedbackPopup && (
         <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50 p-4">
           <div className="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-md text-center animate-in fade-in duration-300">
@@ -306,8 +298,6 @@ export default function ProfilePage() {
               <button
                 onClick={() => {
                   setShowFeedbackPopup(false);
-                  // Mark that user is coming from logout flow
-                  localStorage.setItem("cameFromLogout", "true");
                   // Navigate to feedback page
                   router.push("/main/profile/rate");
                 }}
@@ -318,12 +308,12 @@ export default function ProfilePage() {
               <button
                 onClick={() => {
                   setShowFeedbackPopup(false);
-                  // Show logout confirmation modal
-                  setShowLogoutModal(true);
+                  // Navigate to connect page
+                  router.push("/main/profile/connect");
                 }}
                 className="flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition"
               >
-                Maybe Later
+                Connect
               </button>
             </div>
           </div>

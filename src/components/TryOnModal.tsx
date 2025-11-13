@@ -7,6 +7,7 @@ import { VizzleAPI } from "@/lib/api/vizzle-api";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveTryOnHistory } from "@/lib/firebase/userActivity";
+import { useRouter } from "next/navigation";
 
 interface TryOnModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export default function TryOnModal({
   onSuccess,
 }: TryOnModalProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -34,6 +36,7 @@ export default function TryOnModal({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoStatusMessage, setVideoStatusMessage] = useState("");
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && !resultUrl) {
@@ -169,6 +172,12 @@ export default function TryOnModal({
     } catch (error) {
       toast.error("Download failed");
     }
+  };
+
+  const handleShareClick = () => {
+    if (!resultUrl) return;
+    // Show feedback modal first
+    setShowFeedbackModal(true);
   };
 
   const handleShare = async () => {
@@ -398,7 +407,7 @@ export default function TryOnModal({
                   Download
                 </button>
                 <button
-                  onClick={handleShare}
+                  onClick={handleShareClick}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
                 >
                   <Share2 className="w-4 h-4" />
@@ -436,6 +445,42 @@ export default function TryOnModal({
           )}
         </div>
       </div>
+
+      {/* Feedback Modal - Shown before share */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-[60] p-4">
+          <div className="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-md text-center animate-in fade-in duration-300">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Give us your feedback 💬
+            </h3>
+            <p className="text-gray-600 text-sm mb-5">
+              Your opinion helps us improve your virtual try-on experience.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  // Navigate to feedback page
+                  router.push("/main/profile/rate");
+                }}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
+              >
+                Give Feedback
+              </button>
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  // Execute share after feedback
+                  handleShare();
+                }}
+                className="flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium transition"
+              >
+                Maybe Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
