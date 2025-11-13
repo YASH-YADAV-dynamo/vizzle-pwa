@@ -219,14 +219,26 @@ export async function submitFeedback(
   feedbackData: Omit<Feedback, "id" | "timestamp">
 ): Promise<void> {
   try {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
+    if (!feedbackData.rating && !feedbackData.comment) {
+      throw new Error("Rating or comment is required");
+    }
+
     const feedbackRef = collection(firestore, "users", userId, "feedback");
     const newFeedbackDoc = doc(feedbackRef);
     
-    await setDoc(newFeedbackDoc, {
-      ...feedbackData,
+    const feedbackToSave = {
+      rating: feedbackData.rating || 0,
+      comment: feedbackData.comment || "",
       id: newFeedbackDoc.id,
       timestamp: serverTimestamp(),
-    });
+    };
+    
+    await setDoc(newFeedbackDoc, feedbackToSave);
+    console.log("Feedback submitted successfully:", newFeedbackDoc.id);
   } catch (error) {
     console.error("Error submitting feedback:", error);
     throw error;
@@ -244,12 +256,18 @@ export async function getFeedback(userId: string): Promise<Feedback[]> {
     
     const feedback: Feedback[] = [];
     querySnapshot.forEach((doc) => {
-      feedback.push(doc.data() as Feedback);
+      const data = doc.data();
+      feedback.push({
+        id: data.id || doc.id,
+        rating: data.rating || 0,
+        comment: data.comment || "",
+        timestamp: data.timestamp,
+      });
     });
     
     return feedback.sort((a, b) => {
-      const timeA = a.timestamp?.toMillis() || 0;
-      const timeB = b.timestamp?.toMillis() || 0;
+      const timeA = a.timestamp?.toMillis?.() || a.timestamp || 0;
+      const timeB = b.timestamp?.toMillis?.() || b.timestamp || 0;
       return timeB - timeA;
     });
   } catch (error) {

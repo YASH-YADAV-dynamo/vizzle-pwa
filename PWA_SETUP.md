@@ -30,17 +30,17 @@ npm run pwa:setup
 ```
 
 This will automatically:
-- Look for `logo.png` in the `public/` folder (falls back to `logo1.png` if not found)
+- Look for `logo1.png` in the `public/` folder (falls back to `logo.png` if not found)
 - Generate all required icon sizes (72x72, 96x96, 128x128, 144x144, 152x152, 192x192, 384x384, 512x512)
 - Save them in the `public/` folder with proper naming
 
-**Note:** Make sure you have `logo.png` (or `logo1.png` as fallback) in your `public/` folder before running the command. The app logo used for PWA installation will be generated from `logo.png`.
+**Note:** Make sure you have `logo1.png` (or `logo.png` as fallback) in your `public/` folder before running the command. The app logo used for PWA installation will be generated from `logo1.png` to match the main app logo.
 
 **Alternative Methods (if automated doesn't work):**
 
 #### Method A: Using Online Tool
 1. Go to https://www.pwabuilder.com/imageGenerator
-2. Upload your `logo.png` from the `public` folder
+2. Upload your `logo1.png` from the `public` folder
 3. Generate all sizes
 4. Download and place in `public/` folder with these exact names:
    - `icon-72x72.png`
