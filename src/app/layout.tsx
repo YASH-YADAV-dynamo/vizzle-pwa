@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Vizzle - Virtual Try-On",
   description: "Try on clothes virtually with AI-powered virtual try-on technology",
   manifest: "/manifest.json",
-  themeColor: "#ffffff",
+  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

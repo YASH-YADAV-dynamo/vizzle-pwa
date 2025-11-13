@@ -237,10 +237,28 @@ export async function submitFeedback(
       timestamp: serverTimestamp(),
     };
     
+    // Store feedback in Firebase
     await setDoc(newFeedbackDoc, feedbackToSave);
-    console.log("Feedback submitted successfully:", newFeedbackDoc.id);
-  } catch (error) {
-    console.error("Error submitting feedback:", error);
+    
+    // Verify the feedback was saved by reading it back
+    const savedDoc = await getDoc(newFeedbackDoc);
+    if (!savedDoc.exists()) {
+      throw new Error("Failed to verify feedback was saved");
+    }
+    
+    console.log("✅ Feedback submitted and verified successfully:", {
+      feedbackId: newFeedbackDoc.id,
+      userId: userId,
+      rating: feedbackToSave.rating,
+      hasComment: !!feedbackToSave.comment,
+      path: `users/${userId}/feedback/${newFeedbackDoc.id}`
+    });
+  } catch (error: any) {
+    console.error("❌ Error submitting feedback:", {
+      error: error.message,
+      userId: userId,
+      feedbackData: feedbackData
+    });
     throw error;
   }
 }

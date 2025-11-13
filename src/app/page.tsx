@@ -56,19 +56,25 @@ export default function SplashPage() {
         sessionStorage.setItem("splashShown", "true");
       }
 
-      // Show splash screen immediately
-      setIsVisible(true);
+      // Always show splash screen for PWA, or if not shown yet for web
+      // Small delay to ensure smooth rendering
+      const showTimer = setTimeout(() => {
+        setIsVisible(true);
+      }, 100);
 
       // Hide splash after 4.5 seconds and redirect
-      const timer = setTimeout(() => {
+      const hideTimer = setTimeout(() => {
         setIsVisible(false);
         // Redirect after fade out animation
         setTimeout(() => {
           handleRedirect();
         }, 800);
-      }, 4500);
+      }, 4600); // 100ms delay + 4500ms display
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [loading, handleRedirect]);
 

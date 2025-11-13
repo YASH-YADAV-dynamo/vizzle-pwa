@@ -34,6 +34,7 @@ export default function ReviewPage() {
 
             setIsSubmitting(true);
             try {
+              // Submit feedback to Firebase
               await submitFeedback(user.uid, {
                 rating: rating || 0,
                 comment: review || "",
@@ -42,9 +43,11 @@ export default function ReviewPage() {
               // Mark that user has given feedback
               localStorage.setItem("hasGivenLogoutFeedback", "true");
               
+              // Success feedback
               setShowToast(true);
-              toast.success("Thank you for your feedback!");
+              toast.success("Thank you for your feedback! It has been saved.");
               
+              // Reset form and navigate after 2 seconds
               setTimeout(() => {
                 setShowToast(false);
                 setRating(0);
@@ -59,9 +62,11 @@ export default function ReviewPage() {
                   router.back();
                 }
               }, 2000);
-            } catch (error) {
+            } catch (error: any) {
               console.error("Error submitting feedback:", error);
-              toast.error("Failed to submit feedback. Please try again.");
+              toast.error(
+                error?.message || "Failed to submit feedback. Please try again."
+              );
             } finally {
               setIsSubmitting(false);
             }
