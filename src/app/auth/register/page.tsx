@@ -8,11 +8,13 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from "firebase/auth";
 import { auth, firestore } from "@/firebase/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 
 export default function RegisterPage() {
@@ -32,6 +34,12 @@ export default function RegisterPage() {
 
   // Import useAuth to check if user is already logged in
   const { user, loading: authLoading } = typeof window !== 'undefined' ? require('@/contexts/AuthContext').useAuth() : { user: null, loading: false };
+
+  // Check if running in PWA mode
+  const isPWA = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
 
   // Redirect if already logged in
   if (typeof window !== 'undefined') {
@@ -82,6 +90,31 @@ export default function RegisterPage() {
     }
   };
 
+  // Handle redirect result on page load (for PWA) - must be after handleSocialUserProfile is defined
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !auth) return;
+
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          const providerId = result.user.providerData[0]?.providerId || "google.com";
+          await handleSocialUserProfile(result.user, providerId);
+          router.push("/main");
+        }
+      } catch (error: any) {
+        console.error("Redirect result error:", error);
+        if (error.code === "auth/account-exists-with-different-credential") {
+          setError("An account already exists with this email. Please login instead.");
+        } else {
+          setError(error.message || "Authentication failed.");
+        }
+      }
+    };
+
+    handleRedirectResult();
+  }, [router]);
+
   // 🔹 Google Registration
   const handleGoogleRegister = async () => {
     setError(null);
@@ -89,11 +122,18 @@ export default function RegisterPage() {
 
     try {
       const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-
-      await handleSocialUserProfile(user, "google.com");
-      router.push("/main");
+      
+      // Use redirect for PWA, popup for regular web
+      if (isPWA) {
+        await signInWithRedirect(auth, provider);
+        // Don't set loading to false here as redirect will navigate away
+        return;
+      } else {
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        await handleSocialUserProfile(user, "google.com");
+        router.push("/main");
+      }
     } catch (error: any) {
       console.error("Google registration error:", error);
       if (error.code === "auth/popup-closed-by-user") {
@@ -103,7 +143,6 @@ export default function RegisterPage() {
       } else {
         setError(error.message || "Failed to register with Google.");
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -117,11 +156,18 @@ export default function RegisterPage() {
       const provider = new FacebookAuthProvider();
       provider.addScope('email');
       provider.addScope('public_profile');
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-
-      await handleSocialUserProfile(user, "facebook.com");
-      router.push("/main");
+      
+      // Use redirect for PWA, popup for regular web
+      if (isPWA) {
+        await signInWithRedirect(auth, provider);
+        // Don't set loading to false here as redirect will navigate away
+        return;
+      } else {
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        await handleSocialUserProfile(user, "facebook.com");
+        router.push("/main");
+      }
     } catch (error: any) {
       console.error("Facebook registration error:", error);
       if (error.code === "auth/popup-closed-by-user") {
@@ -131,7 +177,6 @@ export default function RegisterPage() {
       } else {
         setError(error.message || "Failed to register with Facebook.");
       }
-    } finally {
       setLoading(false);
     }
   };

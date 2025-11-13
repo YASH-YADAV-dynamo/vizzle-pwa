@@ -7,6 +7,8 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from "firebase/auth";
@@ -27,6 +29,12 @@ export default function LoginPage() {
 
   // Import useAuth to check if user is already logged in
   const { user, loading: authLoading } = typeof window !== 'undefined' ? require('@/contexts/AuthContext').useAuth() : { user: null, loading: false };
+
+  // Check if running in PWA mode
+  const isPWA = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
 
   // Redirect if already logged in
   if (typeof window !== 'undefined') {
@@ -120,6 +128,30 @@ export default function LoginPage() {
     }
   };
 
+  // Handle redirect result on page load (for PWA) - must be after handleUserProfile is defined
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !auth) return;
+
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          await handleUserProfile(result.user);
+          router.push("/main");
+        }
+      } catch (error: any) {
+        console.error("Redirect result error:", error);
+        if (error.code === "auth/account-exists-with-different-credential") {
+          setError("An account already exists with this email. Please use a different sign-in method.");
+        } else {
+          setError(error.message || "Authentication failed.");
+        }
+      }
+    };
+
+    handleRedirectResult();
+  }, [router]);
+
   // 🔹 Google Sign-In
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -127,19 +159,27 @@ export default function LoginPage() {
 
     try {
       const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-
-      await handleUserProfile(user);
-      router.push("/main");
+      
+      // Use redirect for PWA, popup for regular web
+      if (isPWA) {
+        await signInWithRedirect(auth, provider);
+        // Don't set loading to false here as redirect will navigate away
+        return;
+      } else {
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        await handleUserProfile(user);
+        router.push("/main");
+      }
     } catch (error: any) {
       console.error("Google sign-in error:", error);
       if (error.code === "auth/popup-closed-by-user") {
         setError("Sign-in was cancelled.");
+      } else if (error.code === "auth/account-exists-with-different-credential") {
+        setError("An account already exists with this email. Please use a different sign-in method.");
       } else {
         setError(error.message || "Failed to sign in with Google.");
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -153,11 +193,18 @@ export default function LoginPage() {
       const provider = new FacebookAuthProvider();
       provider.addScope('email');
       provider.addScope('public_profile');
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-
-      await handleUserProfile(user);
-      router.push("/main");
+      
+      // Use redirect for PWA, popup for regular web
+      if (isPWA) {
+        await signInWithRedirect(auth, provider);
+        // Don't set loading to false here as redirect will navigate away
+        return;
+      } else {
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        await handleUserProfile(user);
+        router.push("/main");
+      }
     } catch (error: any) {
       console.error("Facebook sign-in error:", error);
       if (error.code === "auth/popup-closed-by-user") {
@@ -167,7 +214,6 @@ export default function LoginPage() {
       } else {
         setError(error.message || "Failed to sign in with Facebook.");
       }
-    } finally {
       setLoading(false);
     }
   };
