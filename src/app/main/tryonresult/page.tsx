@@ -41,6 +41,28 @@ export default function TryOnResultPage() {
     if (savedProductImage) {
       setProductImage(savedProductImage);
     }
+
+    // Check if video was generated and show feedback after 2 minutes
+    const videoGeneratedTime = localStorage.getItem("videoGeneratedTime");
+    if (videoGeneratedTime) {
+      const timeSinceGeneration = Date.now() - parseInt(videoGeneratedTime);
+      const twoMinutes = 2 * 60 * 1000; // 2 minutes in milliseconds
+      
+      if (timeSinceGeneration >= twoMinutes) {
+        // Show feedback modal if 2 minutes have passed
+        setShowFeedbackModal(true);
+        localStorage.removeItem("videoGeneratedTime");
+      } else {
+        // Set timer to show feedback modal after remaining time
+        const remainingTime = twoMinutes - timeSinceGeneration;
+        const timer = setTimeout(() => {
+          setShowFeedbackModal(true);
+          localStorage.removeItem("videoGeneratedTime");
+        }, remainingTime);
+        
+        return () => clearTimeout(timer);
+      }
+    }
   }, []);
 
   const handleShareClick = () => {
@@ -161,6 +183,10 @@ export default function TryOnResultPage() {
         // Save video URL to localStorage
         localStorage.setItem("tryonVideoUrl", videoResult.video_url);
         localStorage.setItem("tryonVideoGarmentName", garmentName);
+        
+        // Set timer to show feedback modal after 2 minutes
+        const videoGeneratedTime = Date.now();
+        localStorage.setItem("videoGeneratedTime", videoGeneratedTime.toString());
         
         // Redirect to video result page
         router.push("/main/tryonresult/video");

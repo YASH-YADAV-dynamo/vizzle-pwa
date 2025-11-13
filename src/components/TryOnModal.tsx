@@ -230,6 +230,16 @@ export default function TryOnModal({
         setVideoProgress(100);
         setVideoStatusMessage("Video ready!");
         toast.success("Video generated successfully!");
+        
+        // Set timer to show feedback modal after 2 minutes
+        const videoGeneratedTime = Date.now();
+        localStorage.setItem("videoGeneratedTime", videoGeneratedTime.toString());
+        
+        // Set timer to show feedback after 2 minutes
+        setTimeout(() => {
+          setShowFeedbackModal(true);
+          localStorage.removeItem("videoGeneratedTime");
+        }, 2 * 60 * 1000); // 2 minutes
       } else if (videoResult.status === "failed") {
         throw new Error(videoResult.error || "Video generation failed");
       }
