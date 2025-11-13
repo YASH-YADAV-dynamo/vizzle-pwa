@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Footer from "@/components/footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -52,6 +53,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
         <Footer />
       </div>
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
 
       {/* Global Feedback Modal - Shown after 5 minutes of app usage */}
       {showFeedbackModal && (
