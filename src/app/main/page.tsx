@@ -251,8 +251,14 @@ const filteredProducts = products.filter((p) => {
 
       {/* Search */}
       <div className="px-4 mt-3">
-        <div className="flex items-center gap-2 w-full bg-white border border-gray-300 rounded-full px-4 py-2 shadow-md">
-          <Search className="w-5 h-5 text-gray-600" />
+        <div className="flex items-center gap-2 w-full bg-white border border-gray-300 rounded-full px-3 py-2 shadow-md ml-2">
+          <Image 
+            src="/logo1.png" 
+            alt="Logo" 
+            width={48} 
+            height={48} 
+            className="object-contain flex-shrink-0"
+          />
           <input
             type="text"
             placeholder="Search with my product"
@@ -260,6 +266,7 @@ const filteredProducts = products.filter((p) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent outline-none text-sm w-full text-gray-800 placeholder-gray-500"
           />
+          <Search className="w-5 h-5 text-gray-600 flex-shrink-0" />
         </div>
       </div>
 
