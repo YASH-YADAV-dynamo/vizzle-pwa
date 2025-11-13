@@ -167,7 +167,6 @@ const filteredProducts = products.filter((p) => {
   >
     {[
       { src: "/BV1.mp4", title: "Try-on Clothes" },
-      { src: "/BV3.mp4", title: "Try-on Accessories" },
       { src: "/BV2.mp4", title: "Generate your Video" },
     ].map((video, index) => (
       <div
@@ -193,7 +192,7 @@ const filteredProducts = products.filter((p) => {
 
         {/* Dots */}
         <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
-          {["/BV1.mp4", "/BV2.mp4","/BV3.mp4"].map((_, index) => (
+          {["/BV1.mp4", "/BV2.mp4"].map((_, index) => (
             <button
               key={index}
               onClick={() => {
