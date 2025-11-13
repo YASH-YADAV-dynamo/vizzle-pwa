@@ -38,9 +38,13 @@ export default function ProfilePage() {
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
 
   useEffect(() => {
-    // Set photo from Firebase Auth or userProfile
+    // Set photo from Firebase Auth, userProfile, or fullProfile
     if (user?.photoURL) {
       setPhotoURL(user.photoURL);
+    } else if (userProfile?.photoURL) {
+      setPhotoURL(userProfile.photoURL);
+    } else if (fullProfile?.photoURL) {
+      setPhotoURL(fullProfile.photoURL);
     }
 
     // Load user stats and profile data
@@ -50,7 +54,7 @@ export default function ProfilePage() {
 
     // Clean up any leftover logout flow flags
     localStorage.removeItem("cameFromLogout");
-  }, [user]);
+  }, [user, userProfile, fullProfile]);
 
   const loadUserData = async () => {
     if (!user) return;

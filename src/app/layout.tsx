@@ -2,6 +2,7 @@
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
+import SplashScreen from "@/components/SplashScreen";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <SplashScreen />
         <AuthProvider>
           {children}
           <Toaster position="top-center" />

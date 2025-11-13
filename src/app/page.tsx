@@ -9,11 +9,18 @@ export default function HomePage() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading) {
-      // Redirect to main if logged in, otherwise to auth
+    if (!loading && typeof window !== "undefined") {
+      // Check if onboarding has been shown (only on client)
+      const hasSeenOnboarding = sessionStorage.getItem("onboardingShown");
+      
       if (user) {
+        // User is logged in, go to main
         router.push("/main");
+      } else if (!hasSeenOnboarding) {
+        // User not logged in and hasn't seen onboarding, show onboarding
+        router.push("/onboarding");
       } else {
+        // User has seen onboarding, go to auth
         router.push("/auth/option");
       }
     }

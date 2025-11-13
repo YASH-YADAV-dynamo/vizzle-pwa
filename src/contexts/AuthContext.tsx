@@ -12,6 +12,7 @@ interface UserProfile {
   gender: string;
   email: string;
   phoneNumber?: string;
+  photoURL?: string;
   providers: string[];
 }
 
