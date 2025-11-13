@@ -55,6 +55,57 @@ function TryOnPageContent() {
     }
   }, [searchParams]);
 
+  // Fix for GPM WebView - Reset file inputs on click to ensure gallery opens every time
+  useEffect(() => {
+    // Model input
+    const modelInput = modelInputRef.current;
+    const handleModelClick = () => {
+      if (modelInput) {
+        modelInput.value = "";
+      }
+    };
+
+    if (modelInput) {
+      modelInput.addEventListener("click", handleModelClick);
+    }
+
+    return () => {
+      if (modelInput) {
+        modelInput.removeEventListener("click", handleModelClick);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Gallery upload inputs
+    const handleInputClick = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target && target.type === "file") {
+        target.value = "";
+      }
+    };
+
+    // Add listeners to all file inputs
+    const singleInput = document.getElementById("galleryUploadSingle");
+    const multipleInputs = [0, 1, 2].map((i) => 
+      document.getElementById(`galleryUploadMultiple-${i}`)
+    );
+
+    [singleInput, ...multipleInputs].forEach((input) => {
+      if (input) {
+        input.addEventListener("click", handleInputClick);
+      }
+    });
+
+    return () => {
+      [singleInput, ...multipleInputs].forEach((input) => {
+        if (input) {
+          input.removeEventListener("click", handleInputClick);
+        }
+      });
+    };
+  }, []);
+
   const handleAddGarment = () => {
     try {
       localStorage.setItem("originTab", tab);
@@ -339,7 +390,12 @@ function TryOnPageContent() {
             {/* Select Model */}
             <Card
               className="border-dashed border-2 border-gray-300 rounded-lg mb-6 hover:bg-gray-50 cursor-pointer relative"
-              onClick={() => modelInputRef.current?.click()}
+              onClick={() => {
+                if (modelInputRef.current) {
+                  modelInputRef.current.value = ""; // Reset before opening
+                  modelInputRef.current.click();
+                }
+              }}
             >
               <CardContent className="flex flex-col items-center justify-center py-10 relative mt-5">
                 {modelImage ? (
@@ -440,7 +496,12 @@ function TryOnPageContent() {
             {/* Select Model */}
             <Card
               className="border-dashed border-2 border-gray-300 rounded-lg mb-6 hover:bg-gray-50 cursor-pointer relative "
-              onClick={() => modelInputRef.current?.click()}
+              onClick={() => {
+                if (modelInputRef.current) {
+                  modelInputRef.current.value = ""; // Reset before opening
+                  modelInputRef.current.click();
+                }
+              }}
             >
               <CardContent className="flex flex-col items-center justify-center py-10 relative">
                 {modelImage ? (
@@ -547,12 +608,18 @@ function TryOnPageContent() {
                     const input = document.getElementById(
                       `galleryUploadMultiple-${selectedGarmentSlot}`
                     ) as HTMLInputElement | null;
-                    input?.click();
+                    if (input) {
+                      input.value = ""; // Reset before opening
+                      input.click();
+                    }
                   } else {
                     const input = document.getElementById(
                       "galleryUploadSingle"
                     ) as HTMLInputElement | null;
-                    input?.click();
+                    if (input) {
+                      input.value = ""; // Reset before opening
+                      input.click();
+                    }
                   }
                   setSelectedGarmentSlot(null);
                 }}

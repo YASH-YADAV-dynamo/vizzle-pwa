@@ -253,6 +253,33 @@ export default function VirtualTryOn() {
 
   const isUploading = humanUpload.uploading || garmentUpload.uploading;
 
+  // Fix for GPM WebView - Reset file inputs on click to ensure gallery opens every time
+  useEffect(() => {
+    const handleInputClick = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target && target.type === "file") {
+        target.value = "";
+      }
+    };
+
+    const humanInput = document.getElementById("human-upload");
+    const garmentInput = document.getElementById("garment-upload");
+
+    [humanInput, garmentInput].forEach((input) => {
+      if (input) {
+        input.addEventListener("click", handleInputClick);
+      }
+    });
+
+    return () => {
+      [humanInput, garmentInput].forEach((input) => {
+        if (input) {
+          input.removeEventListener("click", handleInputClick);
+        }
+      });
+    };
+  }, []);
+
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}

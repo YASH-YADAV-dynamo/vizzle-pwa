@@ -32,6 +32,20 @@ export default function EditProfilePage() {
     loadUserData();
   }, [user]);
 
+  // Fix for GPM WebView - Reset file input on click to ensure gallery opens every time
+  useEffect(() => {
+    const photoInput = document.getElementById("photo-upload");
+    if (photoInput) {
+      const handleInputClick = () => {
+        (photoInput as HTMLInputElement).value = "";
+      };
+      photoInput.addEventListener("click", handleInputClick);
+      return () => {
+        photoInput.removeEventListener("click", handleInputClick);
+      };
+    }
+  }, []);
+
   const loadUserData = async () => {
     if (!user) return;
 

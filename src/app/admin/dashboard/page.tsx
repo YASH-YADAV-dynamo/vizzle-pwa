@@ -48,6 +48,20 @@ export default function AdminDashboard() {
     sizes: "",
   });
 
+  // Fix for GPM WebView - Reset file input on click to ensure gallery opens every time
+  useEffect(() => {
+    const jsonInput = document.querySelector('input[type="file"][accept=".json"]');
+    if (jsonInput) {
+      const handleInputClick = () => {
+        (jsonInput as HTMLInputElement).value = "";
+      };
+      jsonInput.addEventListener("click", handleInputClick);
+      return () => {
+        jsonInput.removeEventListener("click", handleInputClick);
+      };
+    }
+  }, []);
+
   useEffect(() => {
     // Check admin access
     if (!user) {
