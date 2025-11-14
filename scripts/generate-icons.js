@@ -1,4 +1,4 @@
-// Script to generate PWA icons from logo1.png
+// Script to generate PWA icons from app_logo.png
 // Run with: node scripts/generate-icons.js
 
 const sharp = require('sharp');
@@ -6,16 +6,19 @@ const fs = require('fs');
 const path = require('path');
 
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
-const inputFile = path.join(__dirname, '../public/logo1.png');
+const inputFile = path.join(__dirname, '../public/app_logo.png');
 const outputDir = path.join(__dirname, '../public');
 
-// Check if logo1.png exists, otherwise try logo.png as fallback
+// Check if app_logo.png exists, otherwise try logo1.png or logo.png as fallback
 let sourceFile = inputFile;
 if (!fs.existsSync(sourceFile)) {
-  sourceFile = path.join(__dirname, '../public/logo.png');
+  sourceFile = path.join(__dirname, '../public/logo1.png');
   if (!fs.existsSync(sourceFile)) {
-    console.error('Error: Neither logo1.png nor logo.png found in public folder');
-    process.exit(1);
+    sourceFile = path.join(__dirname, '../public/logo.png');
+    if (!fs.existsSync(sourceFile)) {
+      console.error('Error: app_logo.png, logo1.png, or logo.png not found in public folder');
+      process.exit(1);
+    }
   }
 }
 
