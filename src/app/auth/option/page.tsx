@@ -3,11 +3,93 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import { auth, firestore } from "@/firebase/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function AuthPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Handle Google Sign-In
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      if (!auth) {
+        alert('Authentication service not available. Please refresh the page.');
+        setGoogleLoading(false);
+        return;
+      }
+
+      console.log('🔵 Starting Google Sign-In...');
+
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      provider.addScope('profile');
+      provider.addScope('email');
+      
+      // Try popup first (works better in most cases)
+      try {
+        console.log('  - Attempting popup sign-in...');
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        
+        console.log('✅ Google sign-in successful via popup!');
+        
+        // Create/update user profile
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (!userDoc.exists()) {
+          const nameParts = user.displayName?.split(" ") || [];
+          await setDoc(userDocRef, {
+            firstName: nameParts[0] || "",
+            lastName: nameParts.slice(1).join(" ") || "",
+            gender: "",
+            email: user.email,
+            provider: "google.com",
+            photoURL: user.photoURL || null,
+            providers: ["google.com"],
+          });
+        }
+        
+        window.location.href = "/main";
+        return;
+      } catch (popupError: any) {
+        console.log('  - Popup failed, trying redirect...');
+        
+        // If popup is blocked or fails, use redirect
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' ||
+            popupError.code === 'auth/cancelled-popup-request') {
+          
+          console.log('  - Using redirect flow instead...');
+          
+          sessionStorage.setItem('authRedirectInProgress', 'true');
+          sessionStorage.setItem('authRedirectProvider', 'google');
+          sessionStorage.setItem('authRedirectTimestamp', Date.now().toString());
+          sessionStorage.setItem('authRedirectOrigin', window.location.origin);
+          sessionStorage.setItem('authRedirectPath', window.location.pathname);
+          
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupError;
+      }
+    } catch (error: any) {
+      console.error("❌ Google sign-in error:", error);
+      alert(error.message || "Failed to sign in with Google. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
 
   // Redirect if already logged in
   useEffect(() => {

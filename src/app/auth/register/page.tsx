@@ -108,55 +108,82 @@ export default function RegisterPage() {
   // Note: Redirect result is now handled globally in AuthContext
   // This ensures it works regardless of which page the user lands on after redirect
 
-  // 🔹 Google Registration
+  // 🔹 Google Registration - Fixed
   const handleGoogleRegister = async () => {
     setError(null);
     setLoading(true);
 
     try {
-      const provider = new GoogleAuthProvider();
-      
-      // Use redirect for PWA, popup for regular web
-      if (isPWA) {
-        console.log('🚀 PWA Mode: Using redirect flow');
-        console.log('  - Current origin:', window.location.origin);
-        console.log('  - Current hostname:', window.location.hostname);
-        console.log('  - Redirecting to Google for authentication...');
-        console.log('  - Make sure this domain is authorized in Firebase Console');
-        
-        // Show loading state - user will see this briefly before redirect
-        setError(null);
-        
-        try {
-          await signInWithRedirect(auth, provider);
-          // Page will redirect, so we don't need to do anything else
-          // The global handler in AuthContext will process the result when user returns
-        } catch (redirectError: any) {
-          console.error('❌ Redirect error:', redirectError);
-          setError(redirectError.message || 'Failed to start authentication. Please try again.');
-          setLoading(false);
-        }
+      if (!auth) {
+        setError('Authentication service not available. Please refresh the page.');
+        setLoading(false);
         return;
-      } else {
+      }
+
+      console.log('🔵 Starting Google Registration...');
+
+      // Configure Google provider
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      provider.addScope('profile');
+      provider.addScope('email');
+      
+      // Try popup first (works better in most cases)
+      try {
+        console.log('  - Attempting popup sign-in...');
         const userCredential = await signInWithPopup(auth, provider);
         const user = userCredential.user;
+        
+        console.log('✅ Google registration successful via popup!');
+        
         await handleSocialUserProfile(user, "google.com");
-        router.push("/main");
+        window.location.href = "/main";
+        return;
+      } catch (popupError: any) {
+        console.log('  - Popup failed, trying redirect...');
+        
+        // If popup is blocked or fails, use redirect
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' ||
+            popupError.code === 'auth/cancelled-popup-request') {
+          
+          console.log('  - Using redirect flow instead...');
+          
+          sessionStorage.setItem('authRedirectInProgress', 'true');
+          sessionStorage.setItem('authRedirectProvider', 'google');
+          sessionStorage.setItem('authRedirectTimestamp', Date.now().toString());
+          sessionStorage.setItem('authRedirectOrigin', window.location.origin);
+          sessionStorage.setItem('authRedirectPath', window.location.pathname);
+          
+          await signInWithRedirect(auth, provider);
+          // Page will redirect - AuthContext will handle the result
+          return;
+        }
+        throw popupError;
       }
     } catch (error: any) {
-      console.error("Google registration error:", error);
-      console.error("Error code:", error.code);
-      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
+      sessionStorage.removeItem('authRedirectInProgress');
+      sessionStorage.removeItem('authRedirectProvider');
+      sessionStorage.removeItem('authRedirectTimestamp');
+      sessionStorage.removeItem('authRedirectOrigin');
+      sessionStorage.removeItem('authRedirectPath');
+      
+      console.error("❌ Google registration error:", error);
       
       if (error.code === "auth/popup-closed-by-user") {
-        setError("Registration was cancelled.");
+        setError("Registration was cancelled. Please try again.");
       } else if (error.code === "auth/unauthorized-domain") {
         const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
-        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
+        setError(`Domain "${currentDomain}" is not authorized. Please add it to Firebase Console > Authentication > Settings > Authorized domains.`);
       } else if (error.code === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please login instead.");
+      } else if (error.message?.includes('origins don\'t match')) {
+        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        setError(`Origin mismatch. Please add "${currentDomain}" to Firebase Console. See FIREBASE_LOCALHOST_FIX.md`);
       } else {
-        setError(error.message || "Failed to register with Google.");
+        setError(error.message || "Failed to register with Google. Please try again.");
       }
       setLoading(false);
     }

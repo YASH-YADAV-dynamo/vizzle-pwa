@@ -219,45 +219,78 @@ export async function submitFeedback(
   feedbackData: Omit<Feedback, "id" | "timestamp">
 ): Promise<void> {
   try {
-    if (!userId) {
+    // Validate inputs
+    if (!userId || userId.trim() === "") {
       throw new Error("User ID is required");
     }
 
-    if (!feedbackData.rating && !feedbackData.comment) {
-      throw new Error("Rating or comment is required");
+    // Allow feedback with just rating, just comment, or both
+    const hasRating = feedbackData.rating !== undefined && feedbackData.rating !== null && feedbackData.rating > 0;
+    const hasComment = feedbackData.comment !== undefined && feedbackData.comment !== null && feedbackData.comment.trim() !== "";
+    
+    if (!hasRating && !hasComment) {
+      throw new Error("Please provide a rating or comment");
     }
 
+    // Ensure firestore is initialized
+    if (!firestore) {
+      throw new Error("Firestore is not initialized");
+    }
+
+    // Create feedback document reference
     const feedbackRef = collection(firestore, "users", userId, "feedback");
     const newFeedbackDoc = doc(feedbackRef);
     
+    // Prepare feedback data
     const feedbackToSave = {
-      rating: feedbackData.rating || 0,
-      comment: feedbackData.comment || "",
+      rating: hasRating ? feedbackData.rating : 0,
+      comment: hasComment ? feedbackData.comment.trim() : "",
       id: newFeedbackDoc.id,
       timestamp: serverTimestamp(),
+      createdAt: new Date().toISOString(), // Add ISO timestamp as backup
     };
+    
+    console.log("📝 Attempting to save feedback:", {
+      userId: userId,
+      feedbackId: newFeedbackDoc.id,
+      rating: feedbackToSave.rating,
+      hasComment: hasComment,
+      path: `users/${userId}/feedback/${newFeedbackDoc.id}`
+    });
     
     // Store feedback in Firebase
     await setDoc(newFeedbackDoc, feedbackToSave);
     
+    // Wait a moment for Firestore to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Verify the feedback was saved by reading it back
     const savedDoc = await getDoc(newFeedbackDoc);
     if (!savedDoc.exists()) {
-      throw new Error("Failed to verify feedback was saved");
+      throw new Error("Failed to verify feedback was saved - document does not exist");
     }
     
+    const savedData = savedDoc.data();
     console.log("✅ Feedback submitted and verified successfully:", {
       feedbackId: newFeedbackDoc.id,
       userId: userId,
-      rating: feedbackToSave.rating,
-      hasComment: !!feedbackToSave.comment,
-      path: `users/${userId}/feedback/${newFeedbackDoc.id}`
+      rating: savedData.rating,
+      comment: savedData.comment ? "Present" : "Empty",
+      timestamp: savedData.timestamp ? "Set" : "Missing",
+      path: `users/${userId}/feedback/${newFeedbackDoc.id}`,
+      fullPath: savedDoc.ref.path
     });
   } catch (error: any) {
     console.error("❌ Error submitting feedback:", {
       error: error.message,
+      errorCode: error.code,
+      errorStack: error.stack,
       userId: userId,
-      feedbackData: feedbackData
+      feedbackData: {
+        rating: feedbackData.rating,
+        hasComment: !!feedbackData.comment,
+        commentLength: feedbackData.comment?.length || 0
+      }
     });
     throw error;
   }

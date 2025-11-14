@@ -21,55 +21,68 @@ export default function ReviewPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rating && !review) {
+    
+    // Validate that at least rating or comment is provided
+    const hasRating = rating > 0;
+    const hasComment = review.trim().length > 0;
+    
+    if (!hasRating && !hasComment) {
       toast.error("Please provide a rating or comment");
       return;
     }
 
-    if (!user) {
+    if (!user || !user.uid) {
       toast.error("Please login to submit feedback");
       router.push("/auth/login");
       return;
     }
 
-            setIsSubmitting(true);
-            try {
-              // Submit feedback to Firebase
-              await submitFeedback(user.uid, {
-                rating: rating || 0,
-                comment: review || "",
-              });
-              
-              // Mark that user has given feedback
-              localStorage.setItem("hasGivenLogoutFeedback", "true");
-              
-              // Success feedback
-              setShowToast(true);
-              toast.success("Thank you for your feedback! It has been saved.");
-              
-              // Reset form and navigate after 2 seconds
-              setTimeout(() => {
-                setShowToast(false);
-                setRating(0);
-                setReview("");
-                // Check if user came from logout flow
-                const cameFromLogout = localStorage.getItem("cameFromLogout");
-                if (cameFromLogout === "true") {
-                  localStorage.removeItem("cameFromLogout");
-                  // Go back to profile page which will show logout modal
-                  router.push("/main/profile");
-                } else {
-                  router.back();
-                }
-              }, 2000);
-            } catch (error: any) {
-              console.error("Error submitting feedback:", error);
-              toast.error(
-                error?.message || "Failed to submit feedback. Please try again."
-              );
-            } finally {
-              setIsSubmitting(false);
-            }
+    setIsSubmitting(true);
+    try {
+      console.log("📝 Submitting feedback:", {
+        userId: user.uid,
+        rating: rating,
+        hasComment: hasComment,
+        commentLength: review.trim().length
+      });
+
+      // Submit feedback to Firebase
+      await submitFeedback(user.uid, {
+        rating: rating,
+        comment: review.trim(),
+      });
+      
+      console.log("✅ Feedback submitted successfully");
+      
+      // Mark that user has given feedback
+      localStorage.setItem("hasGivenLogoutFeedback", "true");
+      
+      // Success feedback
+      setShowToast(true);
+      toast.success("Thank you for your feedback! It has been saved.");
+      
+      // Reset form and navigate after 2 seconds
+      setTimeout(() => {
+        setShowToast(false);
+        setRating(0);
+        setReview("");
+        // Check if user came from logout flow
+        const cameFromLogout = localStorage.getItem("cameFromLogout");
+        if (cameFromLogout === "true") {
+          localStorage.removeItem("cameFromLogout");
+          // Go back to profile page which will show logout modal
+          router.push("/main/profile");
+        } else {
+          router.back();
+        }
+      }, 2000);
+    } catch (error: any) {
+      console.error("❌ Error submitting feedback:", error);
+      const errorMessage = error?.message || "Failed to submit feedback. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

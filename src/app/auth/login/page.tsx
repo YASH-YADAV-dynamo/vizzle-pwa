@@ -156,95 +156,112 @@ export default function LoginPage() {
   // Note: Redirect result is now handled globally in AuthContext
   // This ensures it works regardless of which page the user lands on after redirect
 
-  // 🔹 Google Sign-In
+  // 🔹 Google Sign-In - Fixed and Simplified
   const handleGoogleSignIn = async () => {
-    // Recheck PWA status at click time
-    const currentIsPWA = checkIsPWA();
-    
-    console.log('🔵 Google Sign-In button clicked');
-    console.log('  - isPWA (state):', isPWA);
-    console.log('  - isPWA (current):', currentIsPWA);
-    console.log('  - window.location:', typeof window !== 'undefined' ? window.location.href : 'N/A');
-    console.log('  - Display mode:', typeof window !== 'undefined' ? window.matchMedia('(display-mode: standalone)').matches : 'N/A');
-    console.log('  - Navigator standalone:', typeof window !== 'undefined' ? (window.navigator as any).standalone : 'N/A');
-    
     setError(null);
     setLoading(true);
 
     try {
-      const provider = new GoogleAuthProvider();
-      
-      // Check if auth is initialized
+      // Validate auth is available
       if (!auth) {
-        console.error('❌ Firebase auth not initialized');
-        setError('Authentication service not available. Please refresh the page.');
+        const errorMsg = 'Authentication service not available. Please refresh the page.';
+        console.error('❌', errorMsg);
+        setError(errorMsg);
         setLoading(false);
         return;
       }
+
+      console.log('🔵 Starting Google Sign-In...');
+      console.log('  - Auth Domain:', auth.app?.options?.authDomain || 'Not set');
+      console.log('  - Current Origin:', window.location.origin);
+      console.log('  - Current Hostname:', window.location.hostname);
+
+      // Configure Google provider
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      provider.addScope('profile');
+      provider.addScope('email');
       
-      // Always try redirect first in PWA mode, fallback to popup if needed
-      // Also try redirect if popup fails (some browsers block popups)
-      if (currentIsPWA) {
-        console.log('🚀 PWA Mode detected: Using redirect flow');
-        console.log('  - Current origin:', window.location.origin);
-        console.log('  - Current hostname:', window.location.hostname);
-        console.log('  - Auth object:', auth ? 'Initialized' : 'Not initialized');
-        console.log('  - Starting redirect to Google...');
+      // Try popup first (works better in most cases)
+      try {
+        console.log('  - Attempting popup sign-in...');
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
         
-        try {
-          // Set a flag to indicate redirect is in progress
-          sessionStorage.setItem('authRedirectInProgress', 'true');
+        console.log('✅ Google sign-in successful via popup!');
+        console.log('  - User ID:', user.uid);
+        console.log('  - Email:', user.email);
+        
+        // Handle user profile
+        await handleUserProfile(user);
+        
+        // Navigate to main page
+        window.location.href = "/main";
+        return;
+      } catch (popupError: any) {
+        console.log('  - Popup failed, trying redirect...');
+        console.log('  - Popup error:', popupError.code, popupError.message);
+        
+        // If popup is blocked or fails, use redirect
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' ||
+            popupError.code === 'auth/cancelled-popup-request') {
           
-          console.log('  - Calling signInWithRedirect...');
+          console.log('  - Using redirect flow instead...');
+          
+          // Store redirect info
+          sessionStorage.setItem('authRedirectInProgress', 'true');
+          sessionStorage.setItem('authRedirectProvider', 'google');
+          sessionStorage.setItem('authRedirectTimestamp', Date.now().toString());
+          sessionStorage.setItem('authRedirectOrigin', window.location.origin);
+          sessionStorage.setItem('authRedirectPath', window.location.pathname);
+          
+          // Use redirect
           await signInWithRedirect(auth, provider);
-          console.log('✅ Redirect initiated successfully - page should redirect now');
-          // Page will redirect, so we don't need to do anything else
-          // The global handler in AuthContext will process the result when user returns
-          return;
-        } catch (redirectError: any) {
-          console.error('❌ Redirect error:', redirectError);
-          console.error('  - Error code:', redirectError.code);
-          console.error('  - Error message:', redirectError.message);
-          console.error('  - Full error:', redirectError);
-          sessionStorage.removeItem('authRedirectInProgress');
-          setError(redirectError.message || 'Failed to start authentication. Please try again.');
-          setLoading(false);
+          // Page will redirect - AuthContext will handle the result
           return;
         }
-      } else {
-        // Try popup first for regular web
-        console.log('🌐 Web Mode: Trying popup first');
-        try {
-          const userCredential = await signInWithPopup(auth, provider);
-          const user = userCredential.user;
-          await handleUserProfile(user);
-          router.push("/main");
-        } catch (popupError: any) {
-          console.warn('⚠️ Popup failed, trying redirect instead:', popupError);
-          // If popup fails (blocked or other error), fallback to redirect
-          if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
-            console.log('🔄 Falling back to redirect flow');
-            sessionStorage.setItem('authRedirectInProgress', 'true');
-            await signInWithRedirect(auth, provider);
-            return;
-          }
-          throw popupError;
-        }
+        
+        // If it's a different error, throw it
+        throw popupError;
       }
-    } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      console.error("Error code:", error.code);
-      console.error("Current origin:", typeof window !== 'undefined' ? window.location.origin : 'N/A');
       
-      if (error.code === "auth/popup-closed-by-user") {
-        setError("Sign-in was cancelled.");
-      } else if (error.code === "auth/unauthorized-domain") {
-        const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
-        setError(`Domain not authorized. Please add "${currentDomain}" to Firebase Console > Authentication > Settings > Authorized domains. See FIREBASE_PWA_SETUP.md for instructions.`);
-      } else if (error.code === "auth/account-exists-with-different-credential") {
+    } catch (error: any) {
+      // Clean up on error
+      sessionStorage.removeItem('authRedirectInProgress');
+      sessionStorage.removeItem('authRedirectProvider');
+      sessionStorage.removeItem('authRedirectTimestamp');
+      sessionStorage.removeItem('authRedirectOrigin');
+      sessionStorage.removeItem('authRedirectPath');
+      
+      console.error("❌ Google sign-in error:", error);
+      console.error("  - Error code:", error.code);
+      console.error("  - Error message:", error.message);
+      
+      // Handle specific error codes
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      const errorCode = error?.code || '';
+      
+      if (errorCode === "auth/popup-closed-by-user") {
+        setError("Sign-in was cancelled. Please try again.");
+      } else if (errorCode === "auth/unauthorized-domain" || errorMessage.includes('origins don\'t match')) {
+        const currentDomain = window.location.hostname;
+        const fixMessage = 
+          `Domain "${currentDomain}" is not authorized.\n\n` +
+          `To fix:\n` +
+          `1. Go to Firebase Console > Authentication > Settings\n` +
+          `2. Add "${currentDomain}", "localhost", and "127.0.0.1" to Authorized domains\n` +
+          `3. Restart dev server and clear cache\n\n` +
+          `See QUICK_FIX_GOOGLE_LOGIN.md for details.`;
+        setError(fixMessage);
+      } else if (errorCode === "auth/operation-not-allowed") {
+        setError("Google sign-in is not enabled. Please enable it in Firebase Console > Authentication > Sign-in method.");
+      } else if (errorCode === "auth/account-exists-with-different-credential") {
         setError("An account already exists with this email. Please use a different sign-in method.");
       } else {
-        setError(error.message || "Failed to sign in with Google.");
+        setError(errorMessage || "Failed to sign in with Google. Please try again.");
       }
       setLoading(false);
     }

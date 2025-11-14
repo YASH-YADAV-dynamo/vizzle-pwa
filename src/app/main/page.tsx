@@ -103,14 +103,8 @@ const filteredProducts = products.filter((p) => {
     router.push(`/main/tryon?tab=${originTab}`);
   };
 
-  // ✅ Back button confirmation toast
+  // ✅ Back button confirmation toast (removed beforeunload to prevent "leave site" alert)
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
     const handlePopState = (event: PopStateEvent) => {
       event.preventDefault();
       toast.custom(
@@ -146,7 +140,6 @@ const filteredProducts = products.filter((p) => {
 
     window.addEventListener("popstate", handlePopState);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("popstate", handlePopState);
     };
   }, [router]);
