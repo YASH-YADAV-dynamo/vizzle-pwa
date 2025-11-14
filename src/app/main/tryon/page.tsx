@@ -289,30 +289,69 @@ function TryOnPageContent() {
   };
 
   const handleTryOnSuccess = (resultUrl: string) => {
-    // Save to localStorage first
+    // Save to localStorage with proper error handling and validation
     try {
-      localStorage.setItem("tryonResult", resultUrl);
-      localStorage.setItem(
-        "tryonGarmentName",
-        selectedGarmentForTryOn?.name || ""
-      );
-      // Save buyLink and product image if available
-      if (selectedGarmentForTryOn?.buyLink) {
-        localStorage.setItem("tryonBuyLink", selectedGarmentForTryOn.buyLink);
+      // Validate result URL
+      if (!resultUrl || typeof resultUrl !== 'string') {
+        console.error("Invalid result URL:", resultUrl);
+        toast.error("Invalid result. Please try again.");
+        return;
       }
-      if (selectedGarmentForTryOn?.image) {
-        localStorage.setItem("tryonProductImage", selectedGarmentForTryOn.image);
+
+      // Set a flag to indicate we're navigating to result page
+      sessionStorage.setItem("tryonNavigationInProgress", "true");
+      sessionStorage.setItem("tryonNavigationTimestamp", Date.now().toString());
+
+      // Save all data atomically
+      const tryOnData = {
+        resultUrl,
+        garmentName: selectedGarmentForTryOn?.name || "",
+        buyLink: selectedGarmentForTryOn?.buyLink || null,
+        productImage: selectedGarmentForTryOn?.image || null,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem("tryonResult", tryOnData.resultUrl);
+      localStorage.setItem("tryonGarmentName", tryOnData.garmentName);
+      
+      if (tryOnData.buyLink) {
+        localStorage.setItem("tryonBuyLink", tryOnData.buyLink);
+      } else {
+        localStorage.removeItem("tryonBuyLink");
       }
+      
+      if (tryOnData.productImage) {
+        localStorage.setItem("tryonProductImage", tryOnData.productImage);
+      } else {
+        localStorage.removeItem("tryonProductImage");
+      }
+
+      // Save metadata for cache management
+      localStorage.setItem("tryonResultTimestamp", tryOnData.timestamp.toString());
+
+      console.log("✅ Try-on result saved to cache:", {
+        resultUrl: tryOnData.resultUrl.substring(0, 50) + "...",
+        garmentName: tryOnData.garmentName,
+        hasBuyLink: !!tryOnData.buyLink,
+        hasProductImage: !!tryOnData.productImage,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "QuotaExceededError") {
         toast.error("Storage full. Result may not be saved. Please clear some space.");
       } else {
         console.error("Error saving try-on result to localStorage:", error);
+        toast.error("Failed to save result. Please try again.");
+        return;
       }
     }
-    // Close modal and redirect immediately
+    
+    // Close modal first
     setShowTryOnModal(false);
-    router.push("/main/tryonresult");
+    
+    // Small delay to ensure modal closes smoothly, then navigate
+    setTimeout(() => {
+      router.push("/main/tryonresult");
+    }, 100);
   };
 
   return (

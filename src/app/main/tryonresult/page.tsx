@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Share2, Download, Video, Loader2 } from "lucide-react";
+import { Share2, Download, Video, Loader2, Sparkles } from "lucide-react";
 import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -12,35 +12,111 @@ export default function TryOnResultPage() {
   const router = useRouter();
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [resultUrl, setResultUrl] = useState<string>("/v1.jpg");
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [garmentName, setGarmentName] = useState<string>("Product");
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [buyLink, setBuyLink] = useState<string | null>(null);
   const [productImage, setProductImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
-    // Load try-on result from localStorage
-    const savedResult = localStorage.getItem("tryonResult");
-    const savedGarmentName = localStorage.getItem("tryonGarmentName");
-    const savedBuyLink = localStorage.getItem("tryonBuyLink");
-    const savedProductImage = localStorage.getItem("tryonProductImage");
+    // Load try-on result from localStorage with proper state management
+    const loadTryOnData = async () => {
+      try {
+        // Set loading state
+        setIsLoading(true);
+        
+        // Minimum loading time of 1.5 seconds for smooth UX
+        const minLoadTime = 1500;
+        const startTime = Date.now();
 
-    if (savedResult) {
-      setResultUrl(savedResult);
-    }
+        // Load data from localStorage with cache validation
+        const savedResult = localStorage.getItem("tryonResult");
+        const savedGarmentName = localStorage.getItem("tryonGarmentName");
+        const savedBuyLink = localStorage.getItem("tryonBuyLink");
+        const savedProductImage = localStorage.getItem("tryonProductImage");
+        const savedTimestamp = localStorage.getItem("tryonResultTimestamp");
 
-    if (savedGarmentName) {
-      setGarmentName(savedGarmentName);
-    }
+        // Validate cache age (optional: expire after 24 hours)
+        if (savedTimestamp) {
+          const cacheAge = Date.now() - parseInt(savedTimestamp);
+          const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
+          if (cacheAge > maxCacheAge) {
+            console.warn("Try-on result cache expired, clearing...");
+            localStorage.removeItem("tryonResult");
+            localStorage.removeItem("tryonGarmentName");
+            localStorage.removeItem("tryonBuyLink");
+            localStorage.removeItem("tryonProductImage");
+            localStorage.removeItem("tryonResultTimestamp");
+            toast.error("Try-on result expired. Please create a new one.");
+            setTimeout(() => {
+              router.push("/main/tryon");
+            }, 2000);
+            return;
+          }
+        }
 
-    if (savedBuyLink) {
-      setBuyLink(savedBuyLink);
-    }
+        // Validate that we have a result
+        if (!savedResult || savedResult.trim() === "" || savedResult === "/v1.jpg") {
+          console.warn("No valid try-on result found in localStorage");
+          toast.error("No try-on result found. Please try again.");
+          setTimeout(() => {
+            router.push("/main/tryon");
+          }, 2000);
+          return;
+        }
 
-    if (savedProductImage) {
-      setProductImage(savedProductImage);
-    }
+        // Set data
+        if (savedResult) {
+          setResultUrl(savedResult);
+        }
+
+        if (savedGarmentName) {
+          setGarmentName(savedGarmentName);
+        }
+
+        if (savedBuyLink) {
+          setBuyLink(savedBuyLink);
+        }
+
+        if (savedProductImage) {
+          setProductImage(savedProductImage);
+        }
+
+        // Preload the image to ensure it's ready before showing
+        if (savedResult) {
+          const img = new window.Image();
+          img.src = savedResult;
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            // Timeout after 5 seconds
+            setTimeout(() => reject(new Error("Image load timeout")), 5000);
+          });
+        }
+
+        // Wait for minimum load time (1.5-2 seconds for smooth UX)
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadTime - elapsed);
+        
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        // Set loading to false after data is loaded, image is preloaded, and minimum time has passed
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading try-on data:", error);
+        toast.error("Failed to load try-on result. Please try again.");
+        setIsLoading(false);
+        setTimeout(() => {
+          router.push("/main/tryon");
+        }, 2000);
+      }
+    };
+
+    loadTryOnData();
 
     // Check if video was generated and show feedback after 2 minutes
     const videoGeneratedTime = localStorage.getItem("videoGeneratedTime");
@@ -63,7 +139,11 @@ export default function TryOnResultPage() {
         return () => clearTimeout(timer);
       }
     }
-  }, []);
+
+    // Clear navigation flag
+    sessionStorage.removeItem("tryonNavigationInProgress");
+    sessionStorage.removeItem("tryonNavigationTimestamp");
+  }, [router]);
 
   const handleShareClick = () => {
     // Show feedback modal first
@@ -205,6 +285,36 @@ export default function TryOnResultPage() {
     }
   };
 
+  // Show loading state - no placeholder, only proper loader
+  if (isLoading || !resultUrl) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-white p-4">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="relative mb-6">
+              <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-blue-400 animate-pulse" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              Preparing Your Result
+            </h3>
+            <p className="text-gray-600 text-center text-sm max-w-xs">
+              Your virtual try-on is being processed...
+            </p>
+            <div className="w-full max-w-xs mt-6 bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-500 h-2 rounded-full transition-all duration-500" 
+                style={{ width: '70%' }} 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4 relative">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 relative">
@@ -212,17 +322,27 @@ export default function TryOnResultPage() {
           Try On Result
         </h2>
 
-        <div className="relative rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-gray-100 to-gray-50">
-          <div className="relative aspect-[3/4] w-full">
+        <div className="relative rounded-2xl overflow-hidden mb-6 bg-white">
+          <div className="relative aspect-[3/4] w-full bg-white">
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+              </div>
+            )}
             <Image
               src={resultUrl}
               alt="Try On Result"
               fill
-              className="object-contain"
+              className={`object-contain transition-opacity duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
               priority
               unoptimized={resultUrl.includes('replicate.delivery')}
+              onLoad={() => {
+                setImageLoaded(true);
+                console.log("✅ Try-on result image loaded successfully");
+              }}
               onError={(e) => {
                 console.error('Image load error:', e);
+                setImageLoaded(true);
                 // Fallback to regular img tag if Next Image fails
                 const target = e.target as HTMLImageElement;
                 if (target && target.parentElement) {
