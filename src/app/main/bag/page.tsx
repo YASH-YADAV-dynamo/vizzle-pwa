@@ -103,8 +103,8 @@ function FavouritesPageContent() {
         {/* Favourites Grid */}
         {favouriteProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-4">
-            {favouriteProducts.map((product) => (
-              <div key={product.id} className="flex flex-col items-start">
+            {favouriteProducts.map((product, index) => (
+              <div key={`${product.id}-${index}`} className="flex flex-col items-start">
                 <div className="relative bg-[#f4f4f4] w-full h-[300px] rounded-[10px] overflow-hidden">
                   <Image
                     src={product.image}

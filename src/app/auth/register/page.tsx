@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
   // Import useAuth to check if user is already logged in
   const { user, loading: authLoading } = typeof window !== 'undefined' ? require('@/contexts/AuthContext').useAuth() : { user: null, loading: false };
@@ -67,41 +68,46 @@ export default function RegisterPage() {
 
   // 🔹 Helper: Create/Update Firestore User Profile for Social Login
   const handleSocialUserProfile = async (user: any, providerId: string) => {
-    const userDocRef = doc(firestore, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
+    try {
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists()) {
-      // Extract name from displayName for social providers
-      let finalFirstName = "";
-      let finalLastName = "";
+      if (!userDoc.exists()) {
+        // Extract name from displayName for social providers
+        let finalFirstName = "";
+        let finalLastName = "";
 
-      if (user.displayName) {
-        const nameParts = user.displayName.split(" ");
-        finalFirstName = nameParts[0] || "";
-        finalLastName = nameParts.slice(1).join(" ") || "";
+        if (user.displayName) {
+          const nameParts = user.displayName.split(" ");
+          finalFirstName = nameParts[0] || "";
+          finalLastName = nameParts.slice(1).join(" ") || "";
+        }
+
+        const profileData: any = {
+          firstName: finalFirstName,
+          lastName: finalLastName,
+          gender: "",
+          email: user.email,
+          provider: providerId,
+          photoURL: user.photoURL || null,
+          providers: [providerId],
+        };
+
+        await setDoc(userDocRef, profileData);
+      } else {
+        // Update existing profile with social provider data
+        const existingData = userDoc.data();
+        await setDoc(userDocRef, {
+          ...existingData,
+          photoURL: user.photoURL || existingData.photoURL,
+          providers: existingData.providers?.includes(providerId)
+            ? existingData.providers
+            : [...(existingData.providers || []), providerId],
+        }, { merge: true });
       }
-
-      const profileData: any = {
-        firstName: finalFirstName,
-        lastName: finalLastName,
-        gender: "",
-        email: user.email,
-        provider: providerId,
-        photoURL: user.photoURL || null,
-        providers: [providerId],
-      };
-
-      await setDoc(userDocRef, profileData);
-    } else {
-      // Update existing profile with social provider data
-      const existingData = userDoc.data();
-      await setDoc(userDocRef, {
-        ...existingData,
-        photoURL: user.photoURL || existingData.photoURL,
-        providers: existingData.providers?.includes(providerId)
-          ? existingData.providers
-          : [...(existingData.providers || []), providerId],
-      }, { merge: true });
+    } catch (error: any) {
+      console.warn("Firestore write failed for social login:", error);
+      // Continue with social login even if Firestore write fails
     }
   };
 
@@ -234,6 +240,11 @@ export default function RegisterPage() {
     event.preventDefault();
     setError(null);
 
+    if (!accepted) {
+      setError("Please accept the Privacy Policy to continue.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match!");
       return;
@@ -259,15 +270,20 @@ export default function RegisterPage() {
       // Combine country code and phone number
       const fullPhoneNumber = `${countryCode} ${phoneNumber.trim()}`;
 
-      // Save data to Firestore
-      await setDoc(doc(firestore, "users", user.uid), {
-        firstName,
-        lastName,
-        gender,
-        email,
-        phoneNumber: fullPhoneNumber,
-        providers: ["password"],
-      });
+      // Save data to Firestore (skip if permissions error)
+      try {
+        await setDoc(doc(firestore, "users", user.uid), {
+          firstName,
+          lastName,
+          gender,
+          email,
+          phoneNumber: fullPhoneNumber,
+          providers: ["password"],
+        });
+      } catch (firestoreError: any) {
+        console.warn("Firestore write failed, continuing registration:", firestoreError);
+        // Continue registration even if Firestore write fails
+      }
 
       // Save user data temporarily (for login use)
       localStorage.setItem("registrationData", JSON.stringify({ firstName, lastName, gender, phoneNumber: fullPhoneNumber }));
@@ -283,10 +299,15 @@ export default function RegisterPage() {
       }
       
       router.push("/auth/login");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Register error:", error);
-      if (error instanceof Error) setError(error.message);
-      else setError("An unknown error occurred");
+      if (error.code === 'permission-denied') {
+        setError('Database permissions not configured. Please update Firestore security rules.');
+      } else if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -498,11 +519,29 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="privacy-checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="privacy-checkbox" className="text-sm text-gray-600">
+              I agree to the{" "}
+              <Link href="/auth/privacy" className="text-blue-600 hover:underline">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className={`w-full bg-blue-500 text-white py-3.5 rounded-lg hover:bg-blue-600 transition font-medium ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
+            disabled={loading || !accepted}
+            className={`w-full py-3.5 rounded-lg transition font-medium ${
+              loading || !accepted 
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed" 
+                : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
             {loading ? "Registering..." : "Register"}
