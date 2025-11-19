@@ -1,8 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow all reads and writes for now (development mode)
+    // In production, you should restrict this
     match /{document=**} {
       allow read, write: if true;
+    }
+    
+    // Explicit rules for user data deletion
+    match /users/{userId} {
+      // Allow users to read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow deletion of user's own subcollections
+      match /{subcollection=**} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Allow users to delete their own comments
+    match /comments/{commentId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         request.auth.uid == request.resource.data.userId);
     }
   }
 }

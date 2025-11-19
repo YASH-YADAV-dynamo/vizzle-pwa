@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Footer from "@/components/footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import GlobalAdManager from "@/components/GlobalAdManager";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -56,6 +57,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
+
+      {/* Global Ad Manager - Handles timed ads */}
+      <GlobalAdManager />
 
       {/* Global Feedback Modal - Shown after 5 minutes of app usage */}
       {showFeedbackModal && (

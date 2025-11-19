@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { Search, ShoppingBag } from "lucide-react";
-import { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAdmin } from "@/lib/firebase/products";
 import { useFirebaseWishlist } from "@/hooks/useFirebaseWishlist";
 import { toast } from "react-hot-toast";
+import AdSense from "@/components/AdSense";
 
 interface Product {
   id: number;
@@ -264,11 +265,33 @@ const filteredProducts = products.filter((p) => {
         </div>
       </div>
 
+      {/* Banner Ad - After Search */}
+      {process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT && (
+        <div className="px-4 mt-4">
+          <AdSense 
+            adSlot={process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT}
+            adFormat="horizontal"
+            className="w-full"
+          />
+        </div>
+      )}
+
       {/* Product List */}
       <div className="grid grid-cols-2 gap-4 p-4">
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
-            <div key={product.id} className="flex flex-col items-start">
+          filteredProducts.map((product, index) => (
+            <React.Fragment key={product.id}>
+              {/* In-feed ad every 6 products */}
+              {index > 0 && index % 6 === 0 && process.env.NEXT_PUBLIC_ADSENSE_INFEED_SLOT && (
+                <div className="col-span-2 my-2">
+                  <AdSense 
+                    adSlot={process.env.NEXT_PUBLIC_ADSENSE_INFEED_SLOT}
+                    adFormat="auto"
+                    className="w-full"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col items-start w-full">
               <div className="relative bg-[#f4f4f4] w-full h-[300px] rounded-[10px] overflow-hidden">
                 <Image
                   src={product.image}
@@ -303,7 +326,8 @@ const filteredProducts = products.filter((p) => {
               >
                 Try On
               </button>
-            </div>
+              </div>
+            </React.Fragment>
           ))
         ) : (
           <p className="col-span-2 text-center text-gray-500 py-10">

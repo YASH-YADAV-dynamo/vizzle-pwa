@@ -469,3 +469,43 @@ export async function getUserProfile(userId: string): Promise<any> {
   }
 }
 
+/**
+ * Delete all user data from Firestore
+ * This includes:
+ * - User profile document
+ * - Try-on history subcollection
+ * - Feedback subcollection
+ * - User comments
+ */
+export async function deleteUserAccountData(userId: string): Promise<void> {
+  try {
+    // Delete try-on history subcollection
+    const tryOnHistoryRef = collection(firestore, "users", userId, "tryOnHistory");
+    const tryOnHistorySnapshot = await getDocs(tryOnHistoryRef);
+    const tryOnHistoryDeletes = tryOnHistorySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+    await Promise.all(tryOnHistoryDeletes);
+
+    // Delete feedback subcollection
+    const feedbackRef = collection(firestore, "users", userId, "feedback");
+    const feedbackSnapshot = await getDocs(feedbackRef);
+    const feedbackDeletes = feedbackSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+    await Promise.all(feedbackDeletes);
+
+    // Delete user comments
+    const commentsRef = collection(firestore, "comments");
+    const userCommentsQuery = query(commentsRef, where("userId", "==", userId));
+    const userCommentsSnapshot = await getDocs(userCommentsQuery);
+    const commentDeletes = userCommentsSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+    await Promise.all(commentDeletes);
+
+    // Delete user profile document (this will also remove favorites as they're stored in the user doc)
+    const userDocRef = doc(firestore, "users", userId);
+    await deleteDoc(userDocRef);
+
+    console.log("✅ All user data deleted from Firestore");
+  } catch (error) {
+    console.error("Error deleting user account data:", error);
+    throw error;
+  }
+}
+

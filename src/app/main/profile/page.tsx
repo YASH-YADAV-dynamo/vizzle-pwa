@@ -17,12 +17,16 @@ import {
   Mail,
   Phone,
   Users,
+  Trash2,
 } from "lucide-react";
 import { IoArrowBack } from "react-icons/io5";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
-import { getTryOnHistory, getFavorites, getUserProfile } from "@/lib/firebase/userActivity";
+import { getTryOnHistory, getFavorites, getUserProfile, deleteUserAccountData } from "@/lib/firebase/userActivity";
+import { deleteUser, reauthenticateWithPopup, reauthenticateWithRedirect, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
+import { auth } from "@/firebase/firebase";
+import { toast } from "react-hot-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -36,6 +40,8 @@ export default function ProfilePage() {
   const [fullProfile, setFullProfile] = useState<any>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     // Set photo from Firebase Auth, userProfile, or fullProfile
@@ -83,6 +89,80 @@ export default function ProfilePage() {
   // ✅ Function to navigate to any route
   const handleNavigation = (path: string) => {
     router.push(path);
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (!user || !auth.currentUser) return;
+
+    try {
+      setIsDeleting(true);
+      
+      // Check if user needs re-authentication
+      let currentUser = auth.currentUser;
+      
+      // Try to delete user first - if it fails with requires-recent-login, re-authenticate
+      try {
+        // Delete all user data from Firestore first
+        try {
+          await deleteUserAccountData(user.uid);
+        } catch (firestoreError: any) {
+          // Check for Firestore permission errors
+          if (firestoreError.code === "permission-denied" || firestoreError.message?.includes("permission")) {
+            throw new Error("Permission denied. Please check your Firestore security rules allow users to delete their own data.");
+          }
+          throw firestoreError;
+        }
+        
+        // Try to delete user from Firebase Auth
+        await deleteUser(currentUser);
+      } catch (deleteError: any) {
+        // If requires recent login, try to re-authenticate
+        if (deleteError.code === "auth/requires-recent-login") {
+          // Get the user's provider
+          const providerId = currentUser.providerData[0]?.providerId;
+          
+          if (providerId === "google.com") {
+            // Re-authenticate with Google
+            const googleProvider = new GoogleAuthProvider();
+            await reauthenticateWithPopup(currentUser, googleProvider);
+            // Retry deletion after re-authentication
+            await deleteUserAccountData(user.uid);
+            await deleteUser(auth.currentUser);
+          } else if (providerId === "facebook.com") {
+            // Re-authenticate with Facebook
+            const facebookProvider = new FacebookAuthProvider();
+            await reauthenticateWithPopup(currentUser, facebookProvider);
+            // Retry deletion after re-authentication
+            await deleteUserAccountData(user.uid);
+            await deleteUser(auth.currentUser);
+          } else {
+            // Email/password or other providers - show helpful message
+            throw new Error("Please log out and log back in, then try deleting your account again. This is required for security.");
+          }
+        } else {
+          // Re-throw other errors
+          throw deleteError;
+        }
+      }
+      
+      toast.success("Account deleted successfully");
+      
+      // Sign out and redirect to login
+      await signOut();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      setIsDeleting(false);
+      
+      // Handle specific error cases
+      if (error.code === "auth/requires-recent-login") {
+        toast.error("Please log out and log back in, then try deleting your account again.");
+      } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+        toast.error("Authentication cancelled. Please try again.");
+      } else {
+        toast.error(error.message || "Failed to delete account. Please try again.");
+      }
+    }
   };
 
   return (
@@ -274,7 +354,7 @@ export default function ProfilePage() {
         />
 
         {/* Logout Button - Prominent at Bottom */}
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
           <button
             onClick={() => {
               // Directly show logout confirmation modal
@@ -284,6 +364,15 @@ export default function ProfilePage() {
           >
             <LogOut size={20} />
             <span>Logout</span>
+          </button>
+
+          {/* Delete Account Button */}
+          <button
+            onClick={() => setShowDeleteAccountModal(true)}
+            className="w-full flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-4 py-3 hover:bg-gray-100 hover:border-gray-300 transition text-sm font-medium"
+          >
+            <Trash2 size={16} />
+            <span>Delete Account</span>
           </button>
         </div>
       </div>
@@ -349,6 +438,54 @@ export default function ProfilePage() {
                 className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium"
               >
                 No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in fade-in duration-200">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2 text-center">
+              Delete Account?
+            </h2>
+            <p className="text-gray-600 text-center mb-1 text-sm">
+              This action cannot be undone. All your data will be permanently deleted, including:
+            </p>
+            <ul className="text-gray-600 text-sm mb-6 text-center space-y-1">
+              <li>• Your profile information</li>
+              <li>• All try-on history</li>
+              <li>• Your favorites</li>
+              <li>• All feedback and comments</li>
+            </ul>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteAccountModal(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  "Yes, Delete"
+                )}
               </button>
             </div>
           </div>

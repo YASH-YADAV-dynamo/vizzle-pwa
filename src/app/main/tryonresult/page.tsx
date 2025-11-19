@@ -7,6 +7,8 @@ import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { VizzleAPI } from "@/lib/api/vizzle-api";
+import InterstitialAd from "@/components/InterstitialAd";
+import AdSense from "@/components/AdSense";
 
 export default function TryOnResultPage() {
   const router = useRouter();
@@ -20,6 +22,10 @@ export default function TryOnResultPage() {
   const [productImage, setProductImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [showTryOnAd, setShowTryOnAd] = useState(false);
+  const [showVideoAd1, setShowVideoAd1] = useState(false);
+  const [showVideoAd2, setShowVideoAd2] = useState(false);
+  const [videoAdCount, setVideoAdCount] = useState(0);
 
   useEffect(() => {
     // Load try-on result from localStorage with proper state management
@@ -106,6 +112,15 @@ export default function TryOnResultPage() {
         
         // Set loading to false after data is loaded, image is preloaded, and minimum time has passed
         setIsLoading(false);
+        
+        // Show full-screen ad after try-on completion (only once per session)
+        const hasShownTryOnAd = sessionStorage.getItem("hasShownTryOnAd");
+        if (!hasShownTryOnAd) {
+          setTimeout(() => {
+            setShowTryOnAd(true);
+            sessionStorage.setItem("hasShownTryOnAd", "true");
+          }, 1000); // Show ad 1 second after page loads
+        }
       } catch (error) {
         console.error("Error loading try-on data:", error);
         toast.error("Failed to load try-on result. Please try again.");
@@ -268,8 +283,9 @@ export default function TryOnResultPage() {
         const videoGeneratedTime = Date.now();
         localStorage.setItem("videoGeneratedTime", videoGeneratedTime.toString());
         
-        // Redirect to video result page
-        router.push("/main/tryonresult/video");
+        // Show first ad after video generation
+        setShowVideoAd1(true);
+        setVideoAdCount(1);
       } else if (videoResult.status === "failed") {
         throw new Error(videoResult.error || "Video generation failed");
       }
@@ -377,6 +393,17 @@ export default function TryOnResultPage() {
           </div>
         </div>
 
+        {/* Banner Ad - Before Actions */}
+        {process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT && (
+          <div className="mb-4">
+            <AdSense 
+              adSlot={process.env.NEXT_PUBLIC_ADSENSE_BANNER_SLOT}
+              adFormat="horizontal"
+              className="w-full"
+            />
+          </div>
+        )}
+
         {/* Generate Video + Buy Now */}
        <div className="grid grid-cols-2 gap-3 mb-4">
   <button
@@ -453,6 +480,43 @@ export default function TryOnResultPage() {
             </div>
           </div>
         )}
+
+        {/* Full-screen ad after try-on */}
+        <InterstitialAd
+          adSlot={process.env.NEXT_PUBLIC_ADSENSE_INTERSTITIAL_SLOT || ""}
+          isOpen={showTryOnAd}
+          onClose={() => setShowTryOnAd(false)}
+          showCloseButton={true}
+          closeDelay={5}
+        />
+
+        {/* First ad after video generation */}
+        <InterstitialAd
+          adSlot={process.env.NEXT_PUBLIC_ADSENSE_INTERSTITIAL_SLOT || ""}
+          isOpen={showVideoAd1}
+          onClose={() => {
+            setShowVideoAd1(false);
+            // Show second ad after first one closes
+            setTimeout(() => {
+              setShowVideoAd2(true);
+            }, 500);
+          }}
+          showCloseButton={true}
+          closeDelay={5}
+        />
+
+        {/* Second ad after video generation */}
+        <InterstitialAd
+          adSlot={process.env.NEXT_PUBLIC_ADSENSE_INTERSTITIAL_SLOT || ""}
+          isOpen={showVideoAd2}
+          onClose={() => {
+            setShowVideoAd2(false);
+            // Redirect to video result page after both ads
+            router.push("/main/tryonresult/video");
+          }}
+          showCloseButton={true}
+          closeDelay={5}
+        />
 
         {/* Share Modal */}
         {showShareOptions && (

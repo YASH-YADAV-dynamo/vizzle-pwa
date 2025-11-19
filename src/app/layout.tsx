@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/contexts/AuthContext";
 import type { Metadata } from "next";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "Vizzle - Virtual Try-On",
@@ -33,12 +34,28 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false,
   },
+  other: process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID
+    ? {
+        "google-adsense-account": process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID,
+      }
+    : {},
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const adsensePublisherId = process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID;
+
   return (
     <html lang="en">
       <body>
+        {/* Google AdSense Script */}
+        {adsensePublisherId && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsensePublisherId}`}
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+          />
+        )}
         <AuthProvider>
           {children}
           <Toaster position="top-center" />
