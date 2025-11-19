@@ -116,6 +116,11 @@ export default function RegisterPage() {
 
   // 🔹 Google Registration - Fixed
   const handleGoogleRegister = async () => {
+    if (!accepted) {
+      setError("Please accept the Privacy Policy to continue.");
+      return;
+    }
+    
     setError(null);
     setLoading(true);
 
@@ -197,6 +202,11 @@ export default function RegisterPage() {
 
   // 🔹 Facebook Registration
   const handleFacebookRegister = async () => {
+    if (!accepted) {
+      setError("Please accept the Privacy Policy to continue.");
+      return;
+    }
+    
     setError(null);
     setLoading(true);
 
@@ -334,9 +344,11 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={handleGoogleRegister}
-            disabled={loading}
-            className={`w-full flex items-center justify-center gap-3 bg-black text-white py-3.5 rounded-lg hover:bg-gray-800 transition font-medium ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
+            disabled={loading || !accepted}
+            className={`w-full flex items-center justify-center gap-3 py-3.5 rounded-lg transition font-medium ${
+              loading || !accepted 
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed" 
+                : "bg-black text-white hover:bg-gray-800"
             }`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -364,9 +376,11 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={handleFacebookRegister}
-            disabled={loading}
-            className={`w-full flex items-center justify-center gap-3 bg-black text-white py-3.5 rounded-lg hover:bg-gray-800 transition font-medium ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
+            disabled={loading || !accepted}
+            className={`w-full flex items-center justify-center gap-3 py-3.5 rounded-lg transition font-medium ${
+              loading || !accepted 
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed" 
+                : "bg-black text-white hover:bg-gray-800"
             }`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

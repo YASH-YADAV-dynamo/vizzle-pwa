@@ -125,14 +125,32 @@ export default function ProfilePage() {
           if (providerId === "google.com") {
             // Re-authenticate with Google
             const googleProvider = new GoogleAuthProvider();
-            await reauthenticateWithPopup(currentUser, googleProvider);
+            try {
+              await reauthenticateWithPopup(currentUser, googleProvider);
+            } catch (popupError: any) {
+              if (popupError.code === "auth/popup-blocked" || popupError.code === "auth/popup-closed-by-user") {
+                // Use redirect flow if popup is blocked
+                await reauthenticateWithRedirect(currentUser, googleProvider);
+                return; // Exit here as redirect will reload the page
+              }
+              throw popupError;
+            }
             // Retry deletion after re-authentication
             await deleteUserAccountData(user.uid);
             await deleteUser(auth.currentUser);
           } else if (providerId === "facebook.com") {
             // Re-authenticate with Facebook
             const facebookProvider = new FacebookAuthProvider();
-            await reauthenticateWithPopup(currentUser, facebookProvider);
+            try {
+              await reauthenticateWithPopup(currentUser, facebookProvider);
+            } catch (popupError: any) {
+              if (popupError.code === "auth/popup-blocked" || popupError.code === "auth/popup-closed-by-user") {
+                // Use redirect flow if popup is blocked
+                await reauthenticateWithRedirect(currentUser, facebookProvider);
+                return; // Exit here as redirect will reload the page
+              }
+              throw popupError;
+            }
             // Retry deletion after re-authentication
             await deleteUserAccountData(user.uid);
             await deleteUser(auth.currentUser);
